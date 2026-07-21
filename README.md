@@ -57,12 +57,12 @@ they are opt-in and meant to be run in batches, never in the default test suite.
 # and non-destructive (no chart writes reach the live deployment):
 uv run agentforge evals --live --principals api_key \
   --categories data_exfiltration,prompt_injection,tool_misuse,denial_of_service \
-  --llm-judge --novel --safe-live --max 8 --budget 15
+  --llm-judge --novel --safe-live --max 12 --budget 15
 ```
 
-**Result: the hardened Co-Pilot held across all 32 authenticated `/chat` variants** (direct,
-encoded, model-generated, and multi-turn) — an honest *defense held*, with the LLM Judge correctly
-distinguishing a refusal from compliance.
+**Result: the hardened Co-Pilot held across 48 authenticated attack variants** (direct, encoded,
+model-generated, and multi-turn — including the newest surface, such as conversation-id hijack) — an
+honest *defense held*, with the LLM Judge correctly distinguishing a refusal from compliance.
 
 The verdicts are trustworthy *because* the platform was caught over-flagging and corrected: the
 first authenticated run reported false positives (a normal `200` from `/chat` read as "forbidden

@@ -75,18 +75,30 @@ class RedTeamAgent:
                 )
 
     def generate(self, campaign: Campaign, target_version: str) -> list[AttackAttempt]:
-        """Build attempts (no execution). Used for the eval dataset and hermetic tests."""
-        attempts: list[AttackAttempt] = []
+        """Build attempts (no execution). Used for the eval dataset and hermetic tests.
+
+        Attempts are distributed **round-robin across seed+principal** so a category with many
+        seeds exercises all of them under a small budget — otherwise the first seed's variants would
+        fill the whole budget and later seeds (e.g. a new-surface probe) would never run. The
+        canonical variant of each seed stays first in its own list, so it is always included."""
+        groups: list[list[AttackAttempt]] = []
         for seed in self._seeds(campaign):
             for principal in campaign.auth_principals:
                 if principal not in seed.principals:
                     continue
-                for variant in self.engine.mutate(
-                    seed, principal, max_variants=campaign.max_turns_per_attempt + 8
-                ):
-                    attempts.append(self._build(campaign, seed, principal, variant, target_version))
+                variants = self.engine.mutate(
+                    seed, principal, max_variants=campaign.max_turns_per_attempt + 8)
+                groups.append(
+                    [self._build(campaign, seed, principal, v, target_version) for v in variants])
+        attempts: list[AttackAttempt] = []
+        depth = 0
+        while len(attempts) < campaign.max_attempts and any(depth < len(g) for g in groups):
+            for g in groups:
+                if depth < len(g):
+                    attempts.append(g[depth])
                     if len(attempts) >= campaign.max_attempts:
                         return attempts
+            depth += 1
         return attempts
 
     def _build(self, campaign: Campaign, seed: Seed, principal: AuthPrincipal,

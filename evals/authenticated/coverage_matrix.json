@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-07-21T06:12:25.610088+00:00",
+  "generated_at": "2026-07-21T07:01:06.105776+00:00",
   "target_version": "8d78c143ee0e9278",
   "taxonomy_version": "owasp-web-2021; owasp-llm-2023",
   "categories_tested": 4,
   "coverage_matrix": {
     "data_exfiltration": {
-      "total": 8,
-      "pass_defended": 8,
+      "total": 12,
+      "pass_defended": 12,
       "fail_exploited": 0,
       "partial": 0,
       "inconclusive": 0,
@@ -18,11 +18,11 @@
       ]
     },
     "prompt_injection": {
-      "total": 8,
-      "pass_defended": 7,
+      "total": 12,
+      "pass_defended": 12,
       "fail_exploited": 0,
       "partial": 0,
-      "inconclusive": 1,
+      "inconclusive": 0,
       "owasp_web": [
         "A03:2021-Injection"
       ],
@@ -31,11 +31,11 @@
       ]
     },
     "tool_misuse": {
-      "total": 8,
-      "pass_defended": 8,
+      "total": 12,
+      "pass_defended": 11,
       "fail_exploited": 0,
       "partial": 0,
-      "inconclusive": 0,
+      "inconclusive": 1,
       "owasp_web": [
         "A05:2021-Security-Misconfiguration"
       ],
@@ -44,8 +44,8 @@
       ]
     },
     "denial_of_service": {
-      "total": 8,
-      "pass_defended": 8,
+      "total": 12,
+      "pass_defended": 12,
       "fail_exploited": 0,
       "partial": 0,
       "inconclusive": 0,

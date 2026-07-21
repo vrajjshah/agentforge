@@ -89,8 +89,27 @@ request are rejected (401), and identity is not inferred from them.
 Six are fixed on the deployed HEAD (so "defense held" live); two ingestion-audit findings remain
 open by design. Each has a known-good regression test the red team must not be able to re-break.
 
+### Newest surface (least-hardened code — probe hardest here)
+
+The most recently added routes and UI carry the least battle-testing, so they get priority:
+
+- **Conversation-fragment continuation.** The chat page can resume a server-side conversation from a
+  `#conv=<id>` URL fragment. Attack: supply *another* conversation's id and test whether the server
+  binds it to the caller's own session and patient — an untested authorization boundary.
+- **Attribution + stored payloads on the correction routes.** `PATCH /week2/provisional/{id}` and
+  `POST /week2/reject|reopen/{id}` accept a body-supplied `clinician` (must be ignored — identity is
+  server-resolved) and free-text `reason`/`value` fields (≤512/≤256 chars) that are re-rendered on
+  the review UI and can reach the model — a stored-XSS / prompt-injection carrier.
+- **Iframe-to-host DOM reach.** When embedded in the host EMR, the co-pilot's window controls
+  (minimize / pop-out) manipulate the *parent* application's DOM (same origin). The heuristic that
+  decides whether the underlying chart is still reachable is a guess and has failed before — the
+  single most interesting new trust-boundary surface.
+- **On-demand upstream reconciliation** (`GET /week2/patients/{id}/reconciliation`) forces a live
+  EMR read per request — an amplification / cost pivot.
+
 ### Known operational weak points
 
-Single uvicorn worker (~0.56 turns/s) → trivial DoS/cost target; three per-process guards (rate
-limiter, extraction semaphore, `_seen` idempotency) that don't survive horizontal scale-out;
-prompt caching effectively off (static prefix below the 4,096-token cacheable minimum).
+Single-worker deployment (~0.56 turns/s) → trivial DoS/cost target; three per-process guards (rate
+limiter, extraction semaphore, idempotency set) that don't survive horizontal scale-out; upload p95
+≈ 12.2 s against a 15 s SLO (the thinnest margin, where a latency attack lands first); prompt caching
+effectively off (static prefix below the cacheable minimum).

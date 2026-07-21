@@ -187,3 +187,30 @@ backoff/queue/abort.
 for the halt branch, and a `recursion_limit` bounding the loop (a supervisor/orchestrator pattern:
 the Orchestrator routes to workers that return to it). State is in-process, backed by a SQLite event
 ledger for durability; Postgres + a work queue are the documented scale upgrade.
+
+## Platform access control & the production identity model
+
+An adversarial platform holds powerful credentials and can launch real attacks, so **who may
+trigger a run or read a finding is itself a trust boundary.** Today the deployed dashboard is
+read-only; the attack-trigger endpoint is RBAC-gated and disabled unless an admin token is set, so a
+public URL can never launch attacks against the target. The target URL is an immutable allow-list,
+live runs are cost-capped, and (with the safe-live flag) no state-changing writes reach the target.
+
+The **production identity model is single sign-on against the same OpenEMR authorization server the
+target already trusts** — so an operator authenticates once, with the hospital's existing identity
+provider, and the platform never manages passwords. The flow, using the standard SMART/OAuth
+authorization-code grant with PKCE:
+
+1. Operator clicks *Log in with OpenEMR* on the dashboard → redirect to the OpenEMR authorize
+   endpoint (the platform's redirect URI is pre-registered as an OAuth client).
+2. Operator authenticates with OpenEMR; the authorization code returns to the callback.
+3. The platform exchanges the code (with the PKCE verifier) for tokens, **validates the `id_token`**,
+   and derives the principal from it — identity is resolved server-side, never from a request body.
+4. **RBAC:** only `admin` / `security-operator` roles may trigger runs or view findings; clinician
+   roles are refused. The client secret lives in the environment, never in code.
+
+This is a direct port of identity code already proven against this OpenEMR instance in the target
+application (its PKCE + authorization-code exchange, its opaque server-side session store, and its
+server-wins principal resolution). It is documented here rather than built for the deadline because
+the deployed dashboard's read-only-plus-RBAC posture already meets the trust requirement; SSO is the
+enterprise upgrade a hospital would require before granting operators access.
