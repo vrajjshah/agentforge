@@ -106,9 +106,23 @@ class OidcClient:
         return claims
 
     async def register_client(self, redirect_uri: str, client_name: str) -> dict[str, Any]:
-        """RFC 7591 dynamic client registration. Returns the issued client_id/secret."""
+        """RFC 7591 dynamic client registration. Returns the issued client_id/secret.
+
+        ``application_type`` must be ``private``, and it is the whole ballgame on OpenEMR. Its
+        registration handler issues a ``client_secret`` **only** for that value
+        (``AuthorizationController::clientRegistration``); anything else — including the
+        RFC-conventional ``web`` we sent originally — produces a *public* client with an empty
+        secret. That is unusable here, because this issuer's discovery advertises
+        ``token_endpoint_auth_methods_supported: ["client_secret_post"]`` and nothing else, so the
+        token exchange has no way to authenticate and fails with ``invalid_client`` *after* a
+        successful authorize — which is exactly the symptom we chased.
+
+        The same flag also sets ``client_role`` to ``user`` rather than ``patient``, which routes
+        the operator to the provider login instead of the patient portal. Both properties are
+        wanted; both come from this one field.
+        """
         body = {
-            "application_type": "web",
+            "application_type": "private",
             "client_name": client_name,
             "redirect_uris": [redirect_uri],
             "token_endpoint_auth_method": "client_secret_post",  # nosec B105 - OAuth method name
