@@ -1,30 +1,28 @@
-%% AgentForge agent-interaction diagram (source of truth; rendered to architecture.svg).
-%% GitLab (labs.gauntletai.com) does not reliably render mermaid — the committed SVG is what
-%% the grader sees; this .mmd is kept for editability.
+%% AgentForge agent-interaction diagram (editable source; the committed architecture.svg is what
+%% renders on GitLab, which does not reliably render mermaid). Keep the two in sync.
 flowchart TB
-    subgraph OBS[Observability · self-hosted Langfuse + coverage dashboard]
-        direction LR
-        O1[per-agent traces · cost · the 6 required metrics]
+    subgraph OBS[OBSERVABILITY · Langfuse traces + self-contained dashboard]
+        O1[per-agent trace spans · cost · the six coverage/resilience metrics]
     end
 
-    ORCH["ORCHESTRATOR (strategy)<br/>read-only on stores · triggers runs<br/>circuit breaker: HALT on no-signal"]
-    RT["RED TEAM (offense)<br/>deterministic mutation + Bedrock seed<br/>may call target · cannot judge itself"]
-    JUDGE["JUDGE (evaluation)<br/>tool-less · Bedrock Claude (indep. family)<br/>oracle = check-pack, not the Red Team"]
-    DOC["DOCUMENTATION (reporting)<br/>only writer to vuln DB<br/>human gate before CRITICAL"]
-    REG["REGRESSION HARNESS<br/>deterministic replays<br/>asserts the security property"]
+    ORCH["ORCHESTRATOR — strategy<br/>Claude Sonnet-5 + rules<br/>read-only · triggers regression · HALT<br/>trust: cannot write findings"]
+    RT["RED TEAM — offense<br/>Llama 4 Maverick<br/>deterministic mutation (the bulk) + seeds<br/>trust: may call target, can't self-judge"]
+    JUDGE["JUDGE — evaluation<br/>Claude Opus 4.8<br/>tool-less · deterministic-first ladder<br/>oracle = check-pack, not the attacker"]
+    DOC["DOCUMENTATION — reporting<br/>Claude Sonnet-5<br/>only writer to the vuln DB<br/>human gate before a CRITICAL report"]
+    REG["REGRESSION HARNESS<br/>deterministic replay · asserts the security property"]
     TGT[("LIVE TARGET<br/>Clinical Co-Pilot (deployed)<br/>immutable allow-list")]
-    LEDGER[("EVENT LEDGER<br/>append-only, least-privilege")]
-    VDB[("VULN DB<br/>versioned, data-quality gated")]
+    VDB[("VULN DB<br/>versioned · data-quality gated · dual OWASP")]
+    LEDGER[("EVENT LEDGER — append-only substrate<br/>each agent appends its own event type · Orchestrator reads · PHI stays out")]
 
-    ORCH -- "Campaign (capability grant)" --> RT
+    ORCH -- "Campaign" --> RT
     RT -- "AttackAttempt + evidence" --> JUDGE
-    JUDGE -- "Verdict" --> ORCH
+    JUDGE -- "Verdict → coverage · cost · next campaign" --> ORCH
     JUDGE -- "confirmed Verdict" --> DOC
     RT -- "HTTP via TargetAdapter" --> TGT
     DOC -- "VulnReport" --> VDB
-    ORCH -- "trigger on target-version change" --> REG
-    REG -- "replay exploits" --> TGT
-    RT -. "append" .-> LEDGER
-    JUDGE -. "append" .-> LEDGER
-    ORCH -. "reads canonical input" .-> LEDGER
-    OBS -. "reads state" .-> ORCH
+    ORCH -- "trigger on version change" --> REG
+    REG -- "replay" --> TGT
+    RT -. append .-> LEDGER
+    JUDGE -. append .-> LEDGER
+    ORCH -. reads .-> LEDGER
+    OBS -. traces every hop .-> ORCH
