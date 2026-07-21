@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 import httpx
 import jwt
+from jwt.exceptions import PyJWKClientError
 
 from agentforge.auth.config import SsoConfig
 from agentforge.auth.session import OperatorSession
@@ -24,6 +25,13 @@ from agentforge.auth.session import OperatorSession
 
 class SigningKeyProvider(Protocol):
     def get_signing_key_from_jwt(self, token: str) -> Any: ...
+
+    def get_jwk_set(self) -> Any:
+        """The parsed key set, used to recover from a JWKS published without a ``kid``.
+
+        Defaulted so a test double need only supply the lookup it exercises.
+        """
+        raise PyJWKClientError("no key set available")
 
 
 class OidcError(RuntimeError):
@@ -82,9 +90,32 @@ class OidcClient:
         return dict(payload)
 
     def _signing_key(self, id_token: str) -> Any:
+        """Resolve the issuer's signing key, tolerating a JWK Set published without a ``kid``.
+
+        PyJWT selects signing keys with ``public_key_use in ("sig", None) and key_id`` — that
+        trailing clause makes a key without a ``kid`` invisible to it, and the resulting error
+        ("The JWKS endpoint did not contain any signing keys") describes an empty key set rather
+        than the filter that emptied it. OpenEMR publishes exactly one RSA key with ``use: sig``
+        and no ``kid``, which RFC 7517 explicitly permits — ``kid`` is OPTIONAL, and it is a
+        *selector* for choosing among several keys, not a security control.
+
+        So when the strict lookup finds nothing, fall back to the sole published signing key.
+        This does not weaken verification: the signature is still checked against a key fetched
+        from the issuer's own JWKS over TLS. It is refused when the set holds more than one
+        candidate, because then the missing ``kid`` genuinely is ambiguous and picking one would
+        be guessing which key signed the token.
+        """
         if self._jwks is None:
             self._jwks = jwt.PyJWKClient(self._cfg.jwks_uri)
-        return self._jwks.get_signing_key_from_jwt(id_token)
+        try:
+            return self._jwks.get_signing_key_from_jwt(id_token)
+        except PyJWKClientError:
+            # Reuses the client's cached, already-parsed key set — no second fetch.
+            candidates = [k for k in self._jwks.get_jwk_set().keys
+                          if k.public_key_use in ("sig", None)]
+            if len(candidates) != 1:
+                raise
+            return candidates[0]
 
     def verify_id_token(self, id_token: str, expected_nonce: str) -> dict[str, Any]:
         """Verify signature + claims and return the trusted claim set. Raises ``OidcError``."""

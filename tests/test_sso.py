@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -306,3 +307,81 @@ async def test_run_trigger_requires_login_when_sso_enabled(sso_app: tuple[Any, A
     async with _client(web) as c:
         r = await c.post("/api/run/data_exfiltration")
     assert r.status_code == 401
+
+
+# --- JWKS published without a `kid` (the live OpenEMR failure) --------------------------------
+def _kidless_jwks(pub: Any) -> Any:
+    """A JWK Set shaped exactly like the live OpenEMR one: a single RSA key, use=sig, no kid."""
+    from jwt import PyJWKSet
+    from jwt.algorithms import RSAAlgorithm
+
+    jwk = json.loads(RSAAlgorithm.to_jwk(pub))
+    jwk.pop("kid", None)
+    jwk["use"] = "sig"
+    return PyJWKSet.from_dict({"keys": [jwk]})
+
+
+class _RealisticJwksClient:
+    """Stands in for ``jwt.PyJWKClient`` against a kid-less key set.
+
+    Reproduces PyJWT's real behaviour rather than approximating it: the lookup filters on
+    ``... and key_id``, so a key with no kid makes the set look empty and it raises.
+    """
+
+    def __init__(self, jwk_set: Any) -> None:
+        self._set = jwk_set
+
+    def get_signing_key_from_jwt(self, token: str) -> Any:
+        from jwt.exceptions import PyJWKClientError
+
+        if not [k for k in self._set.keys if k.public_key_use in ("sig", None) and k.key_id]:
+            raise PyJWKClientError("The JWKS endpoint did not contain any signing keys")
+        return self._set.keys[0]
+
+    def get_jwk_set(self) -> Any:
+        return self._set
+
+
+def test_verifies_against_a_jwks_that_omits_kid(rsa_keys: tuple[Any, Any]) -> None:
+    """The live failure: OpenEMR publishes one RSA signing key with no `kid`.
+
+    RFC 7517 makes `kid` OPTIONAL — it selects among several keys, it is not a security control.
+    PyJWT's client requires it, so the whole set read as empty and every login failed at
+    verification *after* a successful token exchange.
+    """
+    priv, pub = rsa_keys
+    client = OidcClient(_cfg(), jwks_client=_RealisticJwksClient(_kidless_jwks(pub)))
+    claims = client.verify_id_token(_id_token(priv, nonce="N"), "N")
+    assert claims["sub"] == "user-1"
+
+
+def test_a_forged_token_is_still_rejected_under_the_kidless_fallback(
+        rsa_keys: tuple[Any, Any]) -> None:
+    """The fallback relaxes key *selection*, never verification."""
+    _, pub = rsa_keys
+    attacker = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    client = OidcClient(_cfg(), jwks_client=_RealisticJwksClient(_kidless_jwks(pub)))
+    with pytest.raises(OidcError, match="verification failed"):
+        client.verify_id_token(_id_token(attacker, nonce="N"), "N")
+
+
+def test_ambiguous_kidless_key_set_is_refused(rsa_keys: tuple[Any, Any]) -> None:
+    """Two kid-less candidates and no selector is genuinely ambiguous.
+
+    Guessing which one signed the token is not a fallback.
+    """
+    from jwt import PyJWKSet
+    from jwt.algorithms import RSAAlgorithm
+
+    priv, pub = rsa_keys
+    second = rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key()
+    jwks = []
+    for key in (pub, second):
+        jwk = json.loads(RSAAlgorithm.to_jwk(key))
+        jwk.pop("kid", None)
+        jwk["use"] = "sig"
+        jwks.append(jwk)
+    client = OidcClient(_cfg(),
+                        jwks_client=_RealisticJwksClient(PyJWKSet.from_dict({"keys": jwks})))
+    with pytest.raises(OidcError, match="verification failed"):
+        client.verify_id_token(_id_token(priv, nonce="N"), "N")
