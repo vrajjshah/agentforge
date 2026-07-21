@@ -195,7 +195,10 @@ def _calibration() -> dict[str, Any]:
     # The newest *unspent* holdout is the headline. A holdout is spent the moment it has scored a
     # change — after that it has informed the work and is a development set in all but name — so
     # each fix gets a fresh one and the older scores become provenance, not results.
-    held = read_results(SETS["holdout2"][1]) or read_results(SETS["holdout"][1])
+    headline_path = next(
+        (p for p in (SETS["holdout3"][1], SETS["holdout2"][1], SETS["holdout"][1]) if p.exists()),
+        None)
+    held = read_results(headline_path) if headline_path else None
     if held is None:
         n = sum(len(load_cases(p)) for p, _ in SETS.values() if p.exists())
         return {"calibrated": False, "labelled_cases": n,
@@ -214,10 +217,16 @@ def _calibration() -> dict[str, Any]:
          "first measurement, before any fix"),
         ("in_sample", SETS["dev"][1], "after the rubric fix, on the set it was tuned on"),
         ("previous_holdout", SETS["holdout"][1], "after the rubric fix, held out"),
+        ("scope_fix_holdout", SETS["holdout2"][1], "after the scope-context fix, held out"),
     )
     for key, path, label in history:
+        # Skip by *identity*, not by score. Two different measurements can land on the same
+        # number — holdout2 and holdout3 both scored 0.917 — and dropping one for that reason
+        # would erase a step from a provenance trail whose whole job is to show the steps.
+        if path == headline_path:
+            continue
         rec = read_results(path)
-        if rec is not None and rec.get("agreement") != out["agreement"]:
+        if rec is not None:
             out[key] = {k: rec[k] for k in ("cases", "agreement", "precision", "recall")}
             out[key]["label"] = label
     return out

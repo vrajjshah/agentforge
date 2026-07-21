@@ -40,6 +40,9 @@ SETS: dict[str, tuple[Path, Path]] = {
     # A holdout is spent once it has scored a change. holdout2 was written after the
     # scope-context fix and never consulted while making it.
     "holdout2": (CALIBRATION_DIR / "holdout2.json", CALIBRATION_DIR / "results_holdout2.json"),
+    # Spent by the scope fix. holdout3 scores the small-cell clause and, deliberately, still
+    # carries the older traps — a fix that closes one gap by reopening another is not a fix.
+    "holdout3": (CALIBRATION_DIR / "holdout3.json", CALIBRATION_DIR / "results_holdout3.json"),
 }
 
 

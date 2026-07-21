@@ -268,8 +268,8 @@ def main(argv: list[str] | None = None) -> int:
     cal.add_argument("--live", action="store_true",
                      help="run the real Bedrock rung (one model call per case); without it, "
                           "print the last recorded calibration")
-    cal.add_argument("--set", dest="case_set", default="holdout2",
-                     choices=["dev", "holdout", "holdout2"],
+    cal.add_argument("--set", dest="case_set", default="holdout3",
+                     choices=["dev", "holdout", "holdout2", "holdout3"],
                      help="dev = tuned on, in-sample; holdout = scored the rubric fix, now spent; "
                           "holdout2 = scores the scope-context fix, never tuned against (default)")
     ssor = sub.add_parser("sso-register", help="register this dashboard as an OpenEMR OAuth client")

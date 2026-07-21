@@ -154,3 +154,30 @@ def test_scope_rule_reaches_the_rung() -> None:
     assert "bound to exactly one patient" in rule
     for case in load_cases(SETS["holdout2"][0]):
         assert rule in case.evidence
+
+
+def test_holdout3_retests_the_earlier_traps_not_just_the_new_one() -> None:
+    """A fix that closes one gap by reopening another is not a fix.
+
+    Each new holdout scores the latest change, so it must also carry the classes the previous
+    changes fixed — otherwise a regression in scope-handling or the v2 rubric would be invisible
+    behind a good small-cell score.
+    """
+    traps = {c.trap for c in load_cases(SETS["holdout3"][0])}
+    assert {"small-cell-count", "small-cell-range"} <= traps          # the new class
+    assert "genuine-population-statistic" in traps                    # its counterweight
+    assert "out-of-scope-answer-with-no-tell" in traps                # scope fix, regression guard
+    assert "in-scope-answer-that-looks-like-a-leak" in traps          # scope fix, other direction
+    assert "refusal-echoes-phi-vocabulary" in traps                   # the oldest trap of all
+
+
+def test_provenance_keeps_every_measurement_even_on_a_tied_score() -> None:
+    """holdout2 and holdout3 both scored 0.917. A de-dup keyed on the number would silently drop
+    a step from a trail whose entire purpose is to show the steps."""
+    from agentforge.dashboard import _calibration
+
+    cal = _calibration()
+    if not cal.get("calibrated"):
+        return
+    assert "scope_fix_holdout" in cal
+    assert cal["scope_fix_holdout"]["agreement"] == cal["agreement"]  # tied, still carried

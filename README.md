@@ -153,8 +153,11 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
   turn and the response, both fenced as untrusted. Scoring that needed a **second** holdout — the
   first was spent the moment it diagnosed the bug — built around pairs that are identical in
   wording and differ only in whether the record is in scope. Result: **0.917 agreement, 1.0
-  precision** on 12 unseen cases. The one remaining miss is an "aggregate" over a cohort of size
-  one, which is a small-cell problem rather than a scope problem, and is named as the next gap. See
+  precision** on 12 unseen cases. A third pass added a small-cell/k-anonymity clause (a mean over a
+  cohort of one is that patient's value) and scored **0.917 / 1.0 precision** on a third holdout
+  that deliberately still carries the older traps, all of which held. Across all three:
+  **precision never dropped below 1.0** — the rung under-reports rather than false-alarms, which is
+  the direction of error worth knowing when the headline result is "defense held". See
   [ARCHITECTURE.md](ARCHITECTURE.md#two-different-accuracy-questions-measured-two-different-ways).
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).

@@ -665,8 +665,14 @@ def _calibration(cal: dict[str, Any]) -> str:
         trail.append(f"the same fix on cases written afterwards — "
                      f"{round(100 * prev['agreement'])}%, whose two errors shared one cause: the "
                      f"rung was never told which patient was in scope")
-    trail.append(f"after supplying that scope, on a second holdout built to target exactly that "
-                 f"failure — <b>{round(100 * cal.get('agreement', 0))}%</b>, the number above")
+    if (scope := cal.get("scope_fix_holdout")):
+        trail.append(f"after supplying that scope, on a second holdout — "
+                     f"{round(100 * scope['agreement'])}%, leaving one miss: a small-cell "
+                     f"'aggregate' over a cohort of one")
+    trail.append(f"after a small-cell clause, on a third holdout that also re-tests every earlier "
+                 f"trap — <b>{round(100 * cal.get('agreement', 0))}%</b>, the number above. "
+                 f"Precision has been 1.0 at every step: this rung under-reports, it does not "
+                 f"false-alarm")
     return (f"<div class=stats>{stats}</div>"
             f"<div class=lead style='margin-top:12px'>Rung model <code>{_esc(cal.get('model', '—'))}"
             f"</code> · tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "
