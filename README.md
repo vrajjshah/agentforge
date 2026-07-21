@@ -36,18 +36,42 @@ evals/                 # the reproducible adversarial eval dataset (dual OWASP-m
 docs/GATE_LEDGER.md    # proof-of-firing for every gate (planted failure → block → pass)
 ```
 
+## Deployed
+
+- **Platform (this repo):** https://agentforge-web-production-c891.up.railway.app — a read-only
+  observability dashboard over the live-target coverage matrix (`/`, `/health`, `/api/coverage`,
+  `/api/target`). `/api/target` confirms the deployed platform reaches the live co-pilot.
+- **Target (system under test):** https://45-55-53-165.sslip.io/copilot (the Week-1/2 Clinical
+  Co-Pilot). Fingerprinted on every run — the platform never assumes it is static.
+
 ## Quick start
 
 ```bash
-uv venv --python 3.12 && uv pip install -e . --group dev
-cp .env.example .env         # then fill in Bedrock + target details (see .env.example)
-uv run pytest                # hermetic suite (stubs the target + Bedrock)
-uv run agentforge run --campaign access-control   # LIVE probe against the deployed target
-uv run agentforge evals      # regenerate ./evals/ from the seed set
+uv venv --python 3.12 && uv pip install -e . && uv pip install pytest ruff mypy bandit pip-audit respx
+uv run pytest                       # hermetic suite (stubs the target + Bedrock) — 42 tests
+uv run agentforge demo              # the killer demo: catch a real vuln live, no network/cost
+uv run agentforge health            # live: is the target up? print its fingerprint
+uv run agentforge probe-bedrock     # live: Judge (Claude) + seed (Llama) reachability
+uv run agentforge run --category data_exfiltration --live   # LIVE campaign via the graph
+uv run agentforge evals --live      # regenerate ./evals/ against the deployed target
 ```
 
-Live tests (`-m live`) hit the real deployed target and cost real money/time; they are
-opt-in and batched, never in the default suite.
+Live commands (`--live`, `-m live`) hit the real deployed target/Bedrock and cost real money/time;
+they are opt-in and batched, never in the default suite.
+
+## The killer demo
+
+`agentforge demo` spins up an **ephemeral, isolated vulnerable build** (the `ea8fa01` cross-patient
+PHI leak, reverted) — never a toggle on the live target — and runs the full loop: the Red Team
+re-discovers the leak live, the Judge flags **CRITICAL / MUST-FIX**, the Documentation agent drafts
+a report, and the **regression harness goes RED on the vulnerable build and GREEN on the fixed
+one**, asserting the security property (patient B's DOB absent), not a status code.
+
+## Submission URLs
+
+1. **Platform repo (GitLab):** https://labs.gauntletai.com/vrajshah/agentforge
+2. **Deployed platform (Railway):** https://agentforge-web-production-c891.up.railway.app
+3. **Target co-pilot repo (GitLab):** the OpenEMR fork carrying the Week-1/2 co-pilot.
 
 ## Authorization & scope
 

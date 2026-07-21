@@ -133,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("health", help="check the target is reachable + print its fingerprint")
     sub.add_parser("probe-bedrock", help="probe Judge + seed model reachability (build-time)")
     sub.add_parser("export-schemas", help="re-export the JSON Schema contracts")
+    sub.add_parser("demo", help="run the killer demo (ephemeral vulnerable build; no network/cost)")
 
     run = sub.add_parser("run", help="run one campaign through the multi-agent graph")
     run.add_argument("--category", required=True, choices=[c.value for c in AttackCategory])
@@ -155,6 +156,10 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_cmd_probe_bedrock(settings))
     if args.cmd == "export-schemas":
         return _cmd_export(settings)
+    if args.cmd == "demo":
+        from agentforge.demo.runner import run_demo
+
+        return asyncio.run(run_demo())
     if args.cmd == "run":
         return asyncio.run(_cmd_run(settings, args))
     if args.cmd == "evals":

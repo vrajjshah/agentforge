@@ -20,6 +20,9 @@ and the reproducible evidence command.
 | 8 | **Least-privilege ledger writer** (F11) | ledger | `judge` appends an `approval` event | `WriterNotAuthorized` | judge appends its own verdict event | `pytest tests/test_stores.py::test_ledger_least_privilege` |
 | 9 | **Per-campaign capability grant** (F2) | Red Team | send a `GET` when only `POST` is granted | `CapabilityViolation` | granted method executes | `pytest tests/test_redteam.py::test_capability_grant_blocks_ungranted_method` |
 | 10 | **Live-target-reachable** (health) | adapter | target unreachable | recorded as `target_unreachable`, run halts, never judges blind | 200 → run proceeds | `pytest tests/test_adapter.py::test_invoke_records_transport_error` |
+| 11 | **Cost circuit-breaker** (F8) | Orchestrator | feed a no-signal run past the window | `check_halt()` → HALT (`no_findings_in_window`) | a finding resets the window | `pytest tests/test_graph.py::test_circuit_breaker_halts_on_no_signal` |
+| 12 | **Regression harness** (asserts the security property) | harness | replay `ea8fa01` against the ephemeral **vulnerable** build | `reproduced=True` → suite RED on the *specific* signal (patient B's `birthDate`), not a 200 | replay against the **fixed** build → GREEN | `pytest tests/test_killer_demo.py` · `agentforge demo` |
+| 13 | **Judge invariant on a live-discovered exploit** | Judge | the vulnerable build returns 200 + PHI | verdict EXPLOITED / CRITICAL, never DEFENDED | fixed build → DEFENDED | `pytest tests/test_killer_demo.py` |
 
 ## Pre-push gate — live proof-of-firing (control #1)
 
@@ -34,11 +37,14 @@ bash .githooks/pre-push ; echo "exit: $?"     # → 0 ("✓ pre-push gate passed
 
 Observed 2026-07-21: planted-failure exit `1` (blocked), clean exit `0` (passed).
 
-## Still to prove (added as each control ships)
+_Proven live 2026-07-21: controls #1–#13, including the **regression harness red-then-green on a
+real vuln** (`agentforge demo` / `tests/test_killer_demo.py`) and the **cost circuit-breaker
+HALT**._
 
-- Judge **drift gate** on frozen fixtures (F6) — inject a wrong verdict against a signed
-  fixture, watch the drift alarm block.
-- **Regression harness** — re-introduce `ea8fa01` on the ephemeral vulnerable build, watch the
-  suite go red on the *security property* (patient B's DOB present), not a generic 200.
-- **Cost circuit-breaker** — feed a no-signal run, watch the Orchestrator HALT.
-- **PHI masking** in the ledger — write an event carrying a PHI marker, watch it redacted.
+## Still to prove (Final-ward)
+
+- Judge **drift gate** on frozen, signed fixtures (F6) — inject a wrong verdict against a fixture,
+  watch the drift alarm block. (The invariant #2/#13 is proven; the *drift-on-fixtures* variant is
+  the Final upgrade.)
+- **PHI masking** end-to-end — `redact()` is unit-proven (`test_redact_scrubs_markers`); wiring it
+  on every ledger write path is the Final hardening.

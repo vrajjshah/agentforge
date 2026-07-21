@@ -52,12 +52,18 @@ _SESSION_COOKIE_NAME = "copilot_session"
 
 
 class CopilotAdapter(TargetAdapter):
-    def __init__(self, settings: Settings, session_cookie: str | None = None) -> None:
+    def __init__(self, settings: Settings, session_cookie: str | None = None,
+                 transport: httpx.AsyncBaseTransport | None = None) -> None:
         self._settings = settings
         self._base = settings.target_url
         self._origin = settings.target_origin
         # A SMART session cookie may be injected (e.g. captured via the browser launch flow).
         self._session_cookie = session_cookie
+        # An injectable transport lets the killer demo drive an in-process ASGI app (no network).
+        self._transport = transport
+
+    def _client(self, **kw: object) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=self._transport, **kw)  # type: ignore[arg-type]
 
     @property
     def identity(self) -> AdapterIdentity:
@@ -99,7 +105,7 @@ class CopilotAdapter(TargetAdapter):
         headers = {**auth.headers, **probe.headers}
         started = time.monotonic()
         try:
-            async with httpx.AsyncClient(
+            async with self._client(
                 timeout=self._settings.request_timeout_s,
                 follow_redirects=False,  # a cross-host redirect must never be followed (F2)
                 cookies=auth.cookies,
@@ -128,8 +134,8 @@ class CopilotAdapter(TargetAdapter):
     async def version(self) -> str:
         """Fingerprint = sha256 over stable unauth surface (build changes → hash changes)."""
         parts: list[bytes] = []
-        async with httpx.AsyncClient(timeout=self._settings.request_timeout_s,
-                                     follow_redirects=False) as client:
+        async with self._client(timeout=self._settings.request_timeout_s,
+                                follow_redirects=False) as client:
             for path in ("/health", "/", "/session"):
                 try:
                     r = await client.get(self._resolve_url(path))
@@ -142,7 +148,7 @@ class CopilotAdapter(TargetAdapter):
 
     async def health(self) -> tuple[bool, str]:
         try:
-            async with httpx.AsyncClient(timeout=self._settings.request_timeout_s) as client:
+            async with self._client(timeout=self._settings.request_timeout_s) as client:
                 r = await client.get(self._resolve_url("/health"))
             return r.status_code == 200, f"HTTP {r.status_code}"
         except (httpx.TimeoutException, httpx.TransportError) as exc:
