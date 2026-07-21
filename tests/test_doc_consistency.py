@@ -60,7 +60,7 @@ def test_no_document_contradicts_the_ledger_counts() -> None:
 
 
 def test_seed_module_states_the_same_totals() -> None:
-    total, fixed, _ = _ledger_counts()
+    total, _fixed, _ = _ledger_counts()
     doc = (_ROOT / "src" / "agentforge" / "seeds" / "seeds.py").read_text()[:600]
     assert f"{total} real" in doc, "the seeds module must state the ledger's total"
     assert "Six of the eight are already fixed" in doc
