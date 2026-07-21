@@ -494,3 +494,22 @@ def test_operator_name_map_parses_from_env(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("AGENTFORGE_SSO_OPERATOR_NAMES", "uuid-1=Vraj Shah, uuid-2 = Dr Ada ")
     names = SsoConfig.from_env().operator_names
     assert names == {"uuid-1": "Vraj Shah", "uuid-2": "Dr Ada"}
+
+
+def test_configured_name_is_presentation_only_and_the_subject_survives() -> None:
+    """A name configured here is a label, never a claim about identity provenance.
+
+    It renders as the answer to "who is signed in", so the verified subject has to remain
+    reachable and authoritative: the tooltip carries it, the session carries it, and RBAC matches
+    on it. Nothing downstream may treat the label as an identity.
+    """
+    from agentforge import web
+
+    uuid = "a2348815-c7ae-4eea-bb78-34517eef9cee"
+    session = claims_to_session({"sub": uuid})
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(web, "_sso", _cfg(operator_names={uuid: "Administrator"}))
+        label, tooltip = web._operator_label(session)
+    assert label == "Administrator"
+    assert session.subject == uuid               # the session identity is untouched by the label
+    assert uuid in tooltip

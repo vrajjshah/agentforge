@@ -60,6 +60,12 @@ class SsoConfig:
         def name_map(name: str) -> dict[str, str]:
             """``sub=Display Name`` pairs, comma-separated.
 
+            **The value must mirror the identity provider's own record for that subject.** This
+            renders in the header as the answer to "who is signed in", so a name invented here is
+            the console asserting an identity nobody verified — worse than showing the raw
+            subject, because a uuid is obviously opaque while a plausible name is not. Take it
+            from the IdP's account record, not from a git author, a ticket, or a guess.
+
             A local operator directory, needed because this issuer exposes no name by any route:
             its id_token carries aud/iss/iat/exp/sub/nonce, and the ``userinfo_endpoint`` its own
             discovery document advertises returns 404. The alternative — granting this dashboard
