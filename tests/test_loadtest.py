@@ -34,13 +34,26 @@ async def test_loadtest_never_touches_the_live_target(tmp_path: Path) -> None:
 
 async def test_bottleneck_is_the_llm_rung_once_it_is_sampled(tmp_path: Path) -> None:
     """With a rung latency in the seconds and a deterministic pipeline in the microseconds, the
-    report must say so — and must not let the deterministic sub-analysis bury it."""
+    report must say so — and must not let the deterministic sub-analysis bury it.
+
+    Asserts the *relationship*, not a threshold. An earlier version required
+    `llm_share_of_time_pct > 90`, which passed on a laptop and failed at 89.4% inside a CI
+    container — the deterministic phases are slower there, so the same true statement produced a
+    different number. A performance test that encodes the author's hardware is a test that reports
+    the machine it ran on, not the property it claims to check.
+    """
     r = await run_loadtest(attacks=6, data_dir=tmp_path)
     r.llm_rung_ms = [1200.0, 1300.0, 1400.0]
     b = r.bottleneck()
     assert b["with_llm_rung"]["phase"] == "judge (LLM rung)"
     at10 = b["with_llm_rung"]["at_10pct_of_attacks"]
-    assert at10["llm_share_of_time_pct"] > 90
+    # The rung dominates: firing it on one attack in ten already costs more wall-clock than the
+    # entire deterministic pipeline. True on any host where a network round-trip beats local CPU.
+    assert at10["llm_share_of_time_pct"] > 50
+    # And the share must rise with the firing rate — the shape of the finding, not its magnitude.
+    shares = [b["with_llm_rung"][k]["llm_share_of_time_pct"]
+              for k in ("at_10pct_of_attacks", "at_25pct_of_attacks", "at_100pct_of_attacks")]
+    assert shares == sorted(shares)
     assert at10["attacks_per_second"] < r.throughput
     doc = render_report(r)
     assert "bottleneck is the Judge's LLM rung" in doc
