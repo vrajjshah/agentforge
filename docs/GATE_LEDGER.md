@@ -65,8 +65,18 @@ genuinely hermetic. Run with `.env` moved aside and an emptied environment
 (`env -i PATH=… HOME=… uv run pytest`), **all 122 tests pass** — no test depends on a local
 credential, a live target, or a Bedrock call. A green suite here is green on a bare runner too.
 
-To promote it once a runner exists: plant a failing test, push, watch the job go red on "1 failed",
-remove it, push, watch it go green — then move it into the table above with both job URLs.
+**A correction, recorded rather than quietly fixed.** The first version of this file was committed
+without a `workflow:rules` guard. GitLab created a pipeline on every push, each sat with no runner to
+claim it, and each was then marked **failed** — six red pipelines that meant nothing except that the
+project has no runner. That is worse than shipping no CI file: a reviewer sees red and concludes the
+suite is broken, when it passes. The config is now gated behind `RUN_CI == "1"`, which suppresses
+pipeline creation outright, so it claims no result it does not have. The irony is the point — a
+control that reports failure without having executed anything is the same defect this ledger exists
+to catch, and it took being on the receiving end to notice.
+
+To promote it once a runner exists: attach the runner, set `RUN_CI=1`, plant a failing test, push,
+watch the job go red on "1 failed", remove it, push, watch it go green — then move it into the table
+above with both job URLs.
 
 ## Pre-push gate — live proof-of-firing (control #1)
 

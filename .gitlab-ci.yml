@@ -34,6 +34,20 @@
 # variables block below — if a test ever needed a credential to pass, this job would fail and that
 # would be the correct outcome, not something to paper over with a CI variable.
 
+# Nothing here runs until someone sets RUN_CI=1 in the project's CI/CD variables — which should
+# happen at the same moment a runner is attached, and not before.
+#
+# Learned the hard way: committing this file without the guard created a pipeline on every push,
+# each of which sat with no runner to pick it up and was then marked FAILED. Six red pipelines on
+# the repository, all of them meaningless. That is strictly worse than having no CI file at all —
+# a reviewer sees red and reads "their tests are broken", when the tests pass and there is simply
+# nothing to run them. `workflow:rules` suppresses pipeline *creation* entirely, so the config
+# stays reviewable and one variable away from working, without ever claiming a result it does not
+# have.
+workflow:
+  rules:
+    - if: $RUN_CI == "1"
+
 default:
   image: python:3.12-slim
   interruptible: true
