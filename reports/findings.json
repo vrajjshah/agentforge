@@ -1,6 +1,6 @@
 [
   {
-    "id": "vuln_da316072623a4cfb",
+    "id": "vuln_8a82ba19d0b2479e",
     "seed": "ea8fa01",
     "severity": "critical",
     "category": "data_exfiltration",
@@ -11,7 +11,7 @@
     "file": "ea8fa01.md"
   },
   {
-    "id": "vuln_90b64c1592ca41f9",
+    "id": "vuln_d9bbb1d06f3640ef",
     "seed": "e0e7b6a",
     "severity": "high",
     "category": "identity_role",
@@ -22,7 +22,7 @@
     "file": "e0e7b6a.md"
   },
   {
-    "id": "vuln_a90d0e83732249a1",
+    "id": "vuln_101e709256ef4ae9",
     "seed": "b5f4b1e",
     "severity": "medium",
     "category": "concurrency_idempotency",
