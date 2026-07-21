@@ -110,6 +110,16 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
 
+## Access control (Login with OpenEMR)
+
+The dashboard supports **SSO against the OpenEMR authorization server** (OIDC authorization-code +
+PKCE, RS256 id_token verification against the issuer's JWKS, CSRF/state protection, and deny-by-
+default RBAC to security-operator identities/roles). Register the client once
+(`agentforge sso-register --redirect-uri <dashboard>/callback`) and set the returned credentials.
+Enforcement is configurable: the public demo leaves the read view open for review while every
+mutating action is SSO+RBAC gated; production sets `AGENTFORGE_SSO_REQUIRE=1`. See
+[ARCHITECTURE.md](ARCHITECTURE.md#platform-access-control--login-with-openemr-sso).
+
 ## Architecture
 
 Four agents coordinate through versioned JSON-Schema messages, orchestrated by a LangGraph state

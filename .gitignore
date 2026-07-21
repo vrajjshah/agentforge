@@ -26,3 +26,6 @@ data/
 
 # Live-run artifacts (real target responses may carry synthetic PHI)
 runs/
+
+# SSO client credentials from dynamic registration — never commit
+.sso-credentials.env

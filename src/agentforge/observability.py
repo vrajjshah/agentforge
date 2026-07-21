@@ -17,32 +17,17 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import re
 from collections.abc import Iterator
 from typing import Any
 
-logger = logging.getLogger("agentforge.observability")
+from agentforge.phi import mask_phi
 
-# PHI-shaped patterns masked before any value is sent to the tracing backend.
-_MASK_PATTERNS = (
-    re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),            # ISO dates (DOB-shaped)
-    re.compile(r"\bMRN[-\s]?\w+\b", re.IGNORECASE),  # MRNs
-    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),            # SSN-shaped
-)
+logger = logging.getLogger("agentforge.observability")
 
 
 def _mask(data: Any, **_: Any) -> Any:
-    """Langfuse mask callback — redact PHI-shaped substrings from any traced value."""
-    if isinstance(data, str):
-        out = data
-        for pat in _MASK_PATTERNS:
-            out = pat.sub("[REDACTED]", out)
-        return out
-    if isinstance(data, dict):
-        return {k: _mask(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [_mask(v) for v in data]
-    return data
+    """Langfuse mask callback — the shared PHI-shape redactor (same one the ledger uses)."""
+    return mask_phi(data)
 
 
 class _NoopSpan:

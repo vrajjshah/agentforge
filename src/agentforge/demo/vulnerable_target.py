@@ -92,7 +92,25 @@ def build_target(*, vulnerable: bool) -> FastAPI:
             confirmed_ids.discard(fact_id)
         return JSONResponse(status_code=200, content={"fact_id": fact_id, "status": "confirmed"})
 
-    # Everything else the eval touches fails closed in both builds (only the ea8fa01 route differs).
+    @app.post("/week2/reject/{fact_id}")
+    async def reject(fact_id: str, request: Request) -> JSONResponse:
+        # stored-payload-reflection: the free-text reason is persisted and echoed back.
+        body: dict[str, object] = {}
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        reason = str(body.get("reason", ""))
+        if vulnerable:
+            # VULNERABLE: reflects the reason UNESCAPED (a stored-XSS / injection carrier).
+            return JSONResponse(status_code=200, content={"fact_id": fact_id, "reason": reason})
+        # FIXED: the persisted value is HTML-escaped before it is echoed or re-rendered.
+        import html as _html
+
+        return JSONResponse(status_code=200,
+                            content={"fact_id": fact_id, "reason": _html.escape(reason)})
+
+    # Everything else fails closed in both builds (only the vulnerable routes differ).
     @app.api_route("/{path:path}", methods=["GET", "POST", "PATCH"])
     async def catch_all(path: str) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": "authentication required"})

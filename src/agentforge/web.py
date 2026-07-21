@@ -13,13 +13,19 @@ from __future__ import annotations
 import html
 import json
 import os
+import secrets
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from agentforge.adapters.copilot import CopilotAdapter
+from agentforge.auth.config import SsoConfig
+from agentforge.auth.oidc import OidcClient, OidcError, claims_to_session
+from agentforge.auth.pkce import pkce_pair
+from agentforge.auth.rbac import is_authorized
+from agentforge.auth.session import AuthFlow, AuthFlowStore, OperatorSession, SessionStore
 from agentforge.config import Settings
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +34,26 @@ _REPORTS = Path(os.environ.get("AGENTFORGE_REPORTS_DIR", str(_REPO_ROOT / "repor
 
 app = FastAPI(title="AgentForge", description="Adversarial AI security platform")
 _settings = Settings.from_env()
+
+# --- SSO (Login with OpenEMR) ---------------------------------------------------------------
+_sso = SsoConfig.from_env()
+_oidc = OidcClient(_sso)
+_sessions = SessionStore()
+_flows = AuthFlowStore()
+_SESSION_COOKIE = "af_session"
+_STATE_COOKIE = "af_oauth_state"
+
+
+def _current_operator(request: Request) -> OperatorSession | None:
+    sid = request.cookies.get(_SESSION_COOKIE)
+    return _sessions.get(sid) if sid else None
+
+
+def _safe_return_to(raw: str | None) -> str:
+    """Only allow same-site relative paths as post-login redirects (no open redirect)."""
+    if raw and raw.startswith("/") and not raw.startswith("//"):
+        return raw
+    return "/"
 
 
 def _dashboard_data() -> dict[str, Any]:
@@ -60,14 +86,85 @@ async def target() -> JSONResponse:
 
 
 @app.post("/api/run/{category}")
-async def run(category: str, x_admin_token: str | None = Header(default=None)) -> JSONResponse:
-    """RBAC-gated attack trigger. Disabled unless AGENTFORGE_ADMIN_TOKEN is set (trust & safety)."""
+async def run(category: str, request: Request,
+              x_admin_token: str | None = Header(default=None)) -> JSONResponse:
+    """The attack trigger — a mutating action, so it is always gated. When SSO is configured it
+    requires an authenticated, authorized operator (SSO+RBAC); otherwise it falls back to the
+    admin-token header. Either way it is never open."""
+    if _sso.enabled:
+        operator = _current_operator(request)
+        if operator is None:
+            raise HTTPException(status_code=401, detail="login required (Log in with OpenEMR)")
+        if not is_authorized(operator, _sso):
+            raise HTTPException(status_code=403, detail="not an authorized security-operator")
+        return JSONResponse({"accepted": category, "operator": operator.name,
+                             "note": "run via CLI; results land in ./evals/"})
     admin = os.environ.get("AGENTFORGE_ADMIN_TOKEN", "")
     if not admin:
-        raise HTTPException(status_code=403, detail="run trigger disabled (no admin token)")
-    if x_admin_token != admin:
+        raise HTTPException(status_code=403, detail="run trigger disabled (no admin token / no SSO)")
+    if not (x_admin_token and secrets.compare_digest(x_admin_token, admin)):
         raise HTTPException(status_code=401, detail="invalid admin token")
     return JSONResponse({"accepted": category, "note": "run via CLI; results land in ./evals/"})
+
+
+# --- SSO routes: Login with OpenEMR (authorization-code + PKCE + JWKS-verified id_token) -----
+@app.get("/login")
+async def login(request: Request) -> Response:
+    if not _sso.enabled:
+        raise HTTPException(status_code=503, detail="SSO not configured")
+    verifier, challenge = pkce_pair()
+    state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(16)
+    _flows.set(state, AuthFlow(code_verifier=verifier, nonce=nonce,
+                               redirect_uri=_sso.redirect_uri,
+                               return_to=_safe_return_to(request.query_params.get("return_to"))))
+    resp = RedirectResponse(_oidc.authorize_redirect(state, challenge, nonce), status_code=302)
+    # Double-submit state cookie binds the callback to this browser (login-CSRF defense).
+    resp.set_cookie(_STATE_COOKIE, state, max_age=600, httponly=True,
+                    secure=_sso.cookie_secure, samesite="lax", path="/")
+    return resp
+
+
+@app.get("/callback")
+async def callback(request: Request) -> Response:
+    if not _sso.enabled:
+        raise HTTPException(status_code=503, detail="SSO not configured")
+    if err := request.query_params.get("error"):
+        return HTMLResponse(_auth_notice(f"Login failed: {html.escape(err)}"), status_code=400)
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    if not code or not state or state != request.cookies.get(_STATE_COOKIE):
+        return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
+    flow = _flows.pop(state)  # single-use — replay refused
+    if flow is None:
+        return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
+    try:
+        tokens = await _oidc.exchange_code(code, flow.code_verifier, flow.redirect_uri)
+        claims = _oidc.verify_id_token(tokens["id_token"], flow.nonce)
+    except OidcError:
+        return HTMLResponse(_auth_notice("Could not verify your OpenEMR login."), status_code=400)
+    operator = claims_to_session(claims)
+    if not is_authorized(operator, _sso):
+        return HTMLResponse(
+            _auth_notice(f"Signed in as {html.escape(operator.name)}, but your account is not an "
+                         "authorized security-operator for this platform."), status_code=403)
+    sid = secrets.token_urlsafe(32)
+    _sessions.set(sid, operator)
+    resp = RedirectResponse(flow.return_to, status_code=302)
+    resp.set_cookie(_SESSION_COOKIE, sid, max_age=28800, httponly=True,
+                    secure=_sso.cookie_secure, samesite="lax", path="/")
+    resp.delete_cookie(_STATE_COOKIE, path="/")
+    return resp
+
+
+@app.get("/logout")
+async def logout(request: Request) -> Response:
+    sid = request.cookies.get(_SESSION_COOKIE)
+    if sid:
+        _sessions.delete(sid)
+    resp = RedirectResponse("/", status_code=302)
+    resp.delete_cookie(_SESSION_COOKIE, path="/")
+    return resp
 
 
 @app.get("/reports/{name}", response_class=HTMLResponse)
@@ -82,8 +179,28 @@ async def report(name: str) -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard() -> HTMLResponse:
-    return HTMLResponse(_render(_dashboard_data()))
+async def dashboard(request: Request) -> Response:
+    operator = _current_operator(request)
+    # Read-view enforcement is opt-in (AGENTFORGE_SSO_REQUIRE): the public demo stays inspectable,
+    # production gates the read view too. The mutating run trigger is always gated (above).
+    if _sso.enabled and _sso.require_sso and operator is None:
+        return RedirectResponse("/login", status_code=302)
+    return HTMLResponse(_render(_dashboard_data(), operator))
+
+
+def _auth_notice(message: str) -> str:
+    return (_REPORT_PAGE.replace("__NAME__", "AgentForge — sign in")
+            .replace("__BODY__", message).replace("<pre>", "<p>").replace("</pre>", "</p>"))
+
+
+def _auth_ui(operator: OperatorSession | None) -> str:
+    if operator is not None:
+        return (f"<span class=who title='authenticated security-operator'>"
+                f"<span class=who-dot></span>{_esc(operator.name)}</span>"
+                f"<a class=toggle href='/logout'>Sign out</a>")
+    if _sso.enabled:
+        return "<a class='toggle primary' href='/login'>Log in with OpenEMR</a>"
+    return ""
 
 
 # --------------------------------------------------------------------------------------
@@ -209,7 +326,7 @@ def _activity_rows(activity: list[dict[str, Any]]) -> str:
     return "".join(rows) or "<li class=muted>no recent activity</li>"
 
 
-def _render(d: dict[str, Any]) -> str:
+def _render(d: dict[str, Any], operator: OperatorSession | None = None) -> str:
     if not d:
         return ("<body style='font-family:system-ui;max-width:640px;margin:80px auto;padding:0 20px'>"
                 "<h1>AgentForge</h1><p>No dashboard data yet. Run "
@@ -250,6 +367,7 @@ def _render(d: dict[str, Any]) -> str:
     for k, v in {
         "__TITLE__": _esc(d.get("title", "AgentForge")),
         "__HERO__": hero,
+        "__AUTH__": _auth_ui(operator),
         "__TARGET__": _esc(t.get("url", "—")),
         "__FINGERPRINT__": _esc(t.get("fingerprint", "—")),
         "__SURFACE__": _esc(t.get("surface", "—")),
@@ -338,8 +456,14 @@ header{display:flex;justify-content:space-between;align-items:center;gap:16px;fl
 .meta{color:var(--ink-3);font-size:12px;margin:-6px 0 22px;display:flex;flex-wrap:wrap;gap:4px 16px}
 .meta b{color:var(--ink-2);font-weight:600}
 .toggle{background:var(--surface);border:1px solid var(--border);color:var(--ink-2);border-radius:8px;
- padding:6px 11px;cursor:pointer;font-size:12px;font-weight:600;line-height:1}
-.toggle:hover{border-color:var(--accent);color:var(--accent)}
+ padding:6px 11px;cursor:pointer;font-size:12px;font-weight:600;line-height:1;
+ text-decoration:none;display:inline-flex;align-items:center}
+.toggle:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+.toggle.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.toggle.primary:hover{filter:brightness(1.06);color:#fff}
+.who{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-2);
+ padding:5px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.who-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 
 /* section headers */
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);
@@ -440,7 +564,7 @@ ul.timeline li{display:flex;align-items:center;gap:12px;padding:9px 14px;
  <div class=brand>__LOGO__
   <div><h1>AgentForge</h1><div class=tag>__TITLE__</div></div>
  </div>
- <div class=hgroup>__HERO__
+ <div class=hgroup>__HERO____AUTH__
   <button class=toggle id=themeBtn aria-label="Toggle color theme">◐ Theme</button>
  </div>
 </header>

@@ -201,29 +201,40 @@ for the halt branch, and a `recursion_limit` bounding the loop (a supervisor/orc
 the Orchestrator routes to workers that return to it). State is in-process, backed by a SQLite event
 ledger for durability; Postgres + a work queue are the documented scale upgrade.
 
-## Platform access control & the production identity model
+## Platform access control — Login with OpenEMR (SSO)
 
 An adversarial platform holds powerful credentials and can launch real attacks, so **who may
-trigger a run or read a finding is itself a trust boundary.** Today the deployed dashboard is
-read-only; the attack-trigger endpoint is RBAC-gated and disabled unless an admin token is set, so a
-public URL can never launch attacks against the target. The target URL is an immutable allow-list,
-live runs are cost-capped, and (with the safe-live flag) no state-changing writes reach the target.
+trigger a run or read a finding is itself a trust boundary.** Identity is **single sign-on against
+the same OpenEMR authorization server the target already trusts** — the operator authenticates once
+with the hospital's existing identity provider, and the platform never handles a password.
 
-The **production identity model is single sign-on against the same OpenEMR authorization server the
-target already trusts** — so an operator authenticates once, with the hospital's existing identity
-provider, and the platform never manages passwords. The flow, using the standard SMART/OAuth
-authorization-code grant with PKCE:
+**Implemented** (`src/agentforge/auth/`, `agentforge sso-register`), the standard OIDC
+authorization-code + PKCE flow:
 
-1. Operator clicks *Log in with OpenEMR* on the dashboard → redirect to the OpenEMR authorize
-   endpoint (the platform's redirect URI is pre-registered as an OAuth client).
-2. Operator authenticates with OpenEMR; the authorization code returns to the callback.
-3. The platform exchanges the code (with the PKCE verifier) for tokens, **validates the `id_token`**,
-   and derives the principal from it — identity is resolved server-side, never from a request body.
-4. **RBAC:** only `admin` / `security-operator` roles may trigger runs or view findings; clinician
-   roles are refused. The client secret lives in the environment, never in code.
+1. `GET /login` mints a PKCE pair, a random `state`, and a `nonce`; the verifier/nonce stay
+   server-side (single-use), and a double-submit `state` cookie binds the callback to the browser
+   (login-CSRF defense). It redirects to the OpenEMR authorize endpoint.
+2. The operator authenticates with OpenEMR; the code returns to `GET /callback`.
+3. The callback verifies `state` (query == cookie == a live single-use flow), exchanges the code
+   (with the PKCE verifier), and **verifies the `id_token`'s RS256 signature against the issuer's
+   JWKS**, checking `iss`/`aud`/`exp` and that the `nonce` matches — so a forged, replayed, expired,
+   or wrong-audience token is refused. The principal is derived **server-side** from the verified
+   claims, never from a request body or header.
+4. **RBAC, fail-closed:** a deny-by-default allow-list (matched by subject / fhirUser / email) plus
+   an allowed-role check; an authenticated user who is not an authorized security-operator is
+   refused with a clear message. Sessions are opaque HttpOnly cookies indexing a server-side TTL
+   store; `/logout` clears them. The client secret lives in the environment, never in code.
 
-This is a direct port of identity code already proven against this OpenEMR instance in the target
-application (its PKCE + authorization-code exchange, its opaque server-side session store, and its
-server-wins principal resolution). It is documented here rather than built for the deadline because
-the deployed dashboard's read-only-plus-RBAC posture already meets the trust requirement; SSO is the
-enterprise upgrade a hospital would require before granting operators access.
+**Enforcement is configurable** (`AGENTFORGE_SSO_REQUIRE`). The public demo deployment leaves the
+read view open so a reviewer can inspect the dashboard, while the **mutating attack-trigger is
+always SSO+RBAC gated** whenever SSO is configured; production sets `AGENTFORGE_SSO_REQUIRE=1` to
+gate the read view too. The whole flow is covered by unit tests (PKCE, JWKS verification, each
+negative case) and end-to-end web-flow tests (login → callback → session → RBAC → logout). It ports
+the identity patterns proven against this OpenEMR instance in the target application (PKCE, opaque
+server-side sessions, server-wins identity), hardened here with full JWKS signature verification.
+
+### Client registration
+
+The platform registers itself once as an OAuth client via OpenEMR's RFC 7591 dynamic-registration
+endpoint (`agentforge sso-register --redirect-uri <callback>`), which returns the `client_id` /
+`client_secret` set into the environment (never committed).

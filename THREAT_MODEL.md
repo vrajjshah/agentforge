@@ -99,11 +99,16 @@ The most recently added routes and UI carry the least battle-testing, so they ge
 - **Attribution + stored payloads on the correction routes.** `PATCH /week2/provisional/{id}` and
   `POST /week2/reject|reopen/{id}` accept a body-supplied `clinician` (must be ignored — identity is
   server-resolved) and free-text `reason`/`value` fields (≤512/≤256 chars) that are re-rendered on
-  the review UI and can reach the model — a stored-XSS / prompt-injection carrier.
+  the review UI and can reach the model — a stored-XSS / prompt-injection carrier. **Covered:** the
+  `stored-payload-reason` seed persists a `<script>` payload and the Judge asserts it is never
+  reflected unescaped (caught on a vulnerable build, held when the field is escaped); these are
+  chart-write routes, so they run against the ephemeral build, never the live target.
 - **Iframe-to-host DOM reach.** When embedded in the host EMR, the co-pilot's window controls
-  (minimize / pop-out) manipulate the *parent* application's DOM (same origin). The heuristic that
-  decides whether the underlying chart is still reachable is a guess and has failed before — the
-  single most interesting new trust-boundary surface.
+  (minimize / pop-out) manipulate the *parent* application's DOM (same origin), gated by a
+  chart-reachability heuristic that has failed before. This is a **client-side DOM** attack — out of
+  scope for an HTTP-level scanner and requiring a browser-driven client (the co-pilot ships
+  Selenium/Panther for exactly this). Documented as a known limit of the HTTP surface rather than
+  faked with an HTTP probe; a `BrowserTargetAdapter` is the clean extension.
 - **On-demand upstream reconciliation** (`GET /week2/patients/{id}/reconciliation`) forces a live
   EMR read per request — an amplification / cost pivot.
 

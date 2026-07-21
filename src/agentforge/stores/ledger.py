@@ -16,6 +16,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from agentforge.phi import mask_phi
+
 
 class EventType(StrEnum):
     CAMPAIGN_STARTED = "campaign_started"
@@ -69,9 +71,12 @@ class EventLedger:
             raise WriterNotAuthorized(
                 f"agent {agent!r} may not append {event_type.value!r}"
             )
+        # PHI-shape masking on every write path — the ledger never persists a raw PHI-shaped value,
+        # even if an upstream caller mistakenly includes response content in an event payload.
+        safe = mask_phi(payload)
         cur = self._conn.execute(
             "INSERT INTO events (ts, run_id, agent, event_type, payload) VALUES (?,?,?,?,?)",
-            (time.time(), run_id, agent, event_type.value, json.dumps(payload, default=str)),
+            (time.time(), run_id, agent, event_type.value, json.dumps(safe, default=str)),
         )
         self._conn.commit()
         return int(cur.lastrowid or 0)

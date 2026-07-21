@@ -14,6 +14,8 @@ dependencies = [
     "jsonschema>=4.23",
     "python-dotenv>=1.0",
     "langfuse>=3.0,<4",
+    "pyjwt[crypto]>=2.9",
+    "itsdangerous>=2.2",
 ]
 
 [project.scripts]

@@ -153,6 +153,27 @@ def _maybe_session() -> str | None:
     return os.environ.get("AGENTFORGE_TARGET_SESSION_COOKIE") or None
 
 
+def _cmd_sso_register(redirect_uri: str) -> int:
+    """Dynamic-register the dashboard as an OpenEMR OAuth client; creds go to a gitignored file."""
+    from agentforge.auth.config import SsoConfig
+    from agentforge.auth.oidc import OidcClient, OidcError
+
+    cfg = SsoConfig.from_env()
+    try:
+        reg = asyncio.run(
+            OidcClient(cfg).register_client(redirect_uri, "AgentForge Security Dashboard"))
+    except OidcError as exc:
+        print(f"registration failed: {exc}", file=sys.stderr)
+        return 1
+    cid, secret = reg.get("client_id", ""), reg.get("client_secret", "")
+    out = _REPO_ROOT / ".sso-credentials.env"  # gitignored — move into your real .env / Railway
+    out.write_text(
+        f"AGENTFORGE_SSO_CLIENT_ID={cid}\nAGENTFORGE_SSO_CLIENT_SECRET={secret}\n"
+        f"AGENTFORGE_SSO_REDIRECT_URI={redirect_uri}\n")
+    print(f"registered client_id={cid} (secret written to {out.name}; do not commit)")
+    return 0
+
+
 def _cmd_export(_settings: Settings) -> int:
     from agentforge.contracts.export_schemas import export
 
@@ -173,6 +194,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("dashboard", help="rebuild evals/dashboard.json for the observability dashboard")
     sub.add_parser("cost", help="regenerate docs/COST_ANALYSIS.md (scaling model)")
     sub.add_parser("inner-loop", help="testing-the-tester eval (precision/recall vs ground truth)")
+    ssor = sub.add_parser("sso-register", help="register this dashboard as an OpenEMR OAuth client")
+    ssor.add_argument("--redirect-uri", required=True, help="the dashboard's /callback URL")
 
     run = sub.add_parser("run", help="run one campaign through the multi-agent graph")
     run.add_argument("--category", required=True, choices=[c.value for c in AttackCategory])
@@ -233,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"confusion": data["confusion"], "precision": data["precision"],
                           "recall": data["recall"], "accuracy": data["accuracy"]}, indent=2))
         return 0
+    if args.cmd == "sso-register":
+        return _cmd_sso_register(args.redirect_uri)
     if args.cmd == "run":
         return asyncio.run(_cmd_run(settings, args))
     if args.cmd == "evals":

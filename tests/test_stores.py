@@ -63,6 +63,17 @@ def test_redact_scrubs_markers() -> None:
     assert "[REDACTED]" in redact('{"birthDate":"1950"}', ["1950"])
 
 
+def test_ledger_masks_phi_on_write(tmp_path: Path) -> None:
+    """Every ledger append is PHI-shape masked — a DOB-shaped value never persists raw."""
+    led = EventLedger(tmp_path / "ledger.db")
+    led.append(agent="judge", event_type=EventType.VERDICT_RECORDED, run_id="r",
+               payload={"leak": "patient DOB 1958-03-12", "mrn": "MRN-SYNTH-0002"})
+    stored = led.events(run_id="r")[0]["payload"]
+    assert "1958-03-12" not in str(stored)
+    assert "[REDACTED]" in stored["leak"]
+    led.close()
+
+
 def test_vulndb_accepts_valid_report(tmp_path: Path) -> None:
     db = VulnDB(tmp_path / "vuln.db")
     vid = db.write(_report())

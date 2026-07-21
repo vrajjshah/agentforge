@@ -16,6 +16,24 @@ from dotenv import load_dotenv
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# The default attacker model — measured to comply with authorized offensive-security prompts, a
+# non-Claude family (the Judge-independence control), Western-origin.
+_DEFAULT_SEED_MODEL = "us.meta.llama4-maverick-17b-instruct-v1:0"
+# Off-by-default models: DeepSeek-R1 REFUSED our red-team prompt and is non-Western-origin
+# (a provenance consideration for healthcare). It is usable only behind an explicit opt-in flag,
+# never as a default, so a stray config change can't silently route attacks through it.
+_FLAGGED_OFF = ("deepseek",)
+
+
+def _resolve_seed_model() -> str:
+    configured = os.environ.get("AGENTFORGE_REDTEAM_SEED_MODEL", _DEFAULT_SEED_MODEL)
+    flagged = any(tag in configured.lower() for tag in _FLAGGED_OFF)
+    opted_in = os.environ.get("AGENTFORGE_ALLOW_FLAGGED_MODELS", "0") in ("1", "true", "yes")
+    if flagged and not opted_in:
+        # Refuse to use an off-by-default model without the explicit opt-in; fall back to default.
+        return _DEFAULT_SEED_MODEL
+    return configured
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -52,12 +70,7 @@ class Settings:
             judge_model=os.environ.get(
                 "AGENTFORGE_JUDGE_MODEL", "us.anthropic.claude-opus-4-8"
             ),
-            redteam_seed_model=os.environ.get(
-                # Llama 4 Maverick — measured to comply with authorized offensive-security
-                # prompts (OpenAI gpt-oss and DeepSeek-R1 refused the same prompt); a non-Claude
-                # family, which is also the Judge-independence control. Generates novel seeds.
-                "AGENTFORGE_REDTEAM_SEED_MODEL", "us.meta.llama4-maverick-17b-instruct-v1:0"
-            ),
+            redteam_seed_model=_resolve_seed_model(),
             orchestrator_model=os.environ.get(
                 # Sonnet-5 for the (low-volume) strategic Orchestrator + Documentation calls:
                 # fast and cheaper than the Opus Judge, which stays reliability-critical.

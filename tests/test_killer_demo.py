@@ -8,6 +8,7 @@ asserting the *security property* (patient B's DOB absent), not a bare status.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import httpx
@@ -41,6 +42,35 @@ def _settings(tmp_path: Path) -> Settings:
 def _redteam(settings: Settings, app: object) -> RedTeamAgent:
     adapter = CopilotAdapter(settings, transport=httpx.ASGITransport(app=app))  # type: ignore[arg-type]
     return RedTeamAgent(adapter=adapter, checkpack=CopilotCheckPack(), engine=MutationEngine())
+
+
+async def _detect(rt: RedTeamAgent, judge: Judge, seed_id: str, principal: AuthPrincipal,
+                  vulnerable: bool) -> bool:
+    from agentforge.contracts.models import Campaign
+    from agentforge.seeds.seeds import seed_by_id
+
+    seed = seed_by_id(seed_id)
+    assert seed is not None
+    camp = Campaign(name="t", category=seed.category, target_id="demo", seed_ids=[seed_id],
+                    auth_principals=[principal], max_attempts=4)
+    version = await rt.adapter.version()
+    for attempt in rt.generate(camp, version):
+        executed = await rt.execute(attempt, camp)
+        if (await judge.judge(executed)).label == VerdictLabel.EXPLOITED:
+            return True
+    return False
+
+
+async def test_stored_payload_reflection_detected(tmp_path: Path) -> None:
+    """The stored-payload (persisted XSS / prompt-injection) vector is caught on the vulnerable
+    build (raw reflection) and holds on the fixed build (escaped)."""
+    settings = _settings(tmp_path)
+    settings = dataclasses.replace(settings, target_api_key="k")
+    judge = Judge()
+    vuln = _redteam(settings, build_target(vulnerable=True))
+    fixed = _redteam(settings, build_target(vulnerable=False))
+    assert await _detect(vuln, judge, "stored-payload-reason", AuthPrincipal.NONE, True) is True
+    assert await _detect(fixed, judge, "stored-payload-reason", AuthPrincipal.NONE, False) is False
 
 
 async def test_killer_demo_and_regression_proof_of_firing(tmp_path: Path) -> None:
