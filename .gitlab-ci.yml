@@ -1,5 +1,7 @@
 # ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-# │ STATUS: LIVE. This pipeline runs on every push and merge request.                            │
+# │ STATUS: LIVE. If a pipeline is created at all, the gate runs in it — push, MR, tag, or       │
+# │ manual. That wording is deliberate: it used to read "every push and merge request", which     │
+# │ was both narrower than the truth and hiding a hole on tags. See docs/GATE_LEDGER.md.          │
 # │                                                                                              │
 # │ Runner 192 "agentforge-ci" — project-scoped, docker executor, image python:3.12-slim, on an  │
 # │ always-on droplet under systemd (enabled + active, survives reboot). Not a laptop: a gate     │

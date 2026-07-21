@@ -71,8 +71,38 @@ same-machine proof can never surface it.
 | Executor and image actually used | `Using Docker executor with image python:3.12-slim` |
 | Runner persistence | systemd `enabled` + `active`; not a laptop |
 | Order of operations | `RUN_CI=1` set **only after** the API reported the runner `online` |
-| Config produces jobs | branch push created pipeline 16104 with a real job — no zero-jobs trap |
+| Config produces jobs | branch push created pipeline 16104 with a real job — **on a branch only; see below** |
 | Defect found on first real run | one, host-dependent assertion, fixed |
+
+**That row over-claimed, and the row above it is how I know.** "No zero-jobs trap" was tested on a
+branch push and written as if it covered the config. It did not. The `gate` job carried
+`rules: [if: $CI_COMMIT_BRANCH, if: $CI_MERGE_REQUEST_IID]` — narrower than the `workflow:` rule
+that decides whether a pipeline is created at all. A **tag** pipeline sets neither variable.
+
+I predicted that would produce a red "no jobs" pipeline and probed it rather than asserting:
+pushing tag `ci-probe-before` created **no pipeline whatsoever**. GitLab does not warn when nothing
+matches; it declines to create the pipeline. Tagging a release would have run zero checks, with no
+red badge, no notification, and a repo that looked exactly like one with a green gate. Worse than
+the failure I expected, because the expected one is visible.
+
+Fixed by deleting the job-level rules so coverage is decided in one place. Re-probed the identical
+scenario: tag `ci-probe-after` → **pipeline 16120, 1 job, `gate` success in 106s**. Both probe tags
+were deleted; the pipeline records remain as the evidence.
+
+| | before | after |
+|---|---|---|
+| tag push | **no pipeline created — silent** | pipeline 16120, `gate` success |
+| branch push | pipeline 16104, 1 job | pipeline 16119, 1 job |
+
+Found because the sibling OpenEMR repo hit the same root cause from the opposite side: there
+`golden-gate` was rule-restricted while `lint` and `security` were not, so a manually-triggered
+pipeline ran two of three jobs and reported **success** — a green badge with the test suite missing.
+Job rules narrower than workflow rules, failing loud-but-incomplete there and silent-and-total here.
+
+Three controls in this repo have now been believed-working and were not: the shell executor that
+ignored `image:`, the runner created unlocked, and this. Every one was found by exercising the
+control; none by reading it. That is the platform's own thesis applied to its own scaffolding, and
+it keeps holding.
 
 One prediction I made and got wrong, recorded because it was falsifiable: the sibling OpenEMR
 pipeline found six CVEs in `pip 25.0.1` bundled in `python:3.12-slim`, and I expected this pipeline
