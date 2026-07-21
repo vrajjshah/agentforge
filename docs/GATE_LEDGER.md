@@ -42,35 +42,43 @@ and the reproducible evidence command.
 | 30 | **Strict CSP + no framing** | web | request any page and inspect headers | `default-src 'none'`, `frame-ancestors 'none'`, `nosniff`, `DENY` present | — (headers are unconditional) | `pytest tests/test_web_gating.py::test_security_headers_are_set` |
 | 31 | **Errors never leak internals** | web | raise inside a request handler | generic 500 page; the exception text and traceback stay in the log | normal request → 200 | `pytest tests/test_web_gating.py::test_unhandled_errors_do_not_leak_internals` |
 | 32 | **Every break-glass access is on the record** | web | submit a wrong operator token, then the right one | both appear in the ledger as `auth_access` (`denied`, then `granted`), written by the least-privilege `web` writer; the token value appears nowhere | a `web` writer attempting any other event type → `WriterNotAuthorized` | `pytest tests/test_web_gating.py::test_break_glass_use_is_recorded_in_the_ledger` · `::test_ledger_writer_for_auth_is_least_privilege` |
-| 32 | **GitLab CI pipeline** (same five checks, on a machine that is not the author's) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [job 55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) RED — "1 failed, 157 passed", `ERROR: Job failed: exit status 1` | remove the test, push → [job 55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) GREEN — all five checks pass, `Job succeeded` | pipelines 16059 (failed) → 16061 (success) on `main` |
+| 32 | **GitLab CI pipeline** (same five checks, on a machine that is not the author's, in the image the config declares) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed to a branch with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [job 55744](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55744) RED — `Using Docker executor with image python:3.12-slim`, `FAILED tests/test_planted_failure.py - assert 1 == 2` | remove it, push → [job 55750](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55750) GREEN, all five checks, `Job succeeded`; main [pipeline 16108](https://labs.gauntletai.com/vrajshah/agentforge/-/pipelines/16108) success | runner 192, docker executor, systemd on 45.55.53.165 |
 
-## The CI pipeline: proven once, then deliberately switched off
+## The CI pipeline: live, and what re-proving it properly cost
 
-`.gitlab-ci.yml` runs the same five checks as the pre-push hook, and it has now been **executed for
-real** — see control 32. A throwaway project runner (shell executor, GitLab Runner 19.2.0 matching
-the server) was registered against project 1564, a failing test was planted, and both halves were
-watched:
+`.gitlab-ci.yml` runs the same five checks as the pre-push hook, on **runner 192 `agentforge-ci`** —
+project-scoped, **docker executor**, image `python:3.12-slim`, on an always-on droplet under systemd
+(`enabled` + `active`, survives reboot). It runs on **every push and merge request**. See control 32.
 
-| | Job | Outcome |
-|---|---|---|
-| RED | [55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) | `FAILED tests/test_planted_failure.py::test_planted_failure - assert 1 == 2` · `1 failed, 157 passed` · `ERROR: Job failed: exit status 1` |
-| GREEN | [55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) | ruff `All checks passed!` · mypy `no issues found in 50 source files` · `157 passed` · bandit clean · `No known vulnerabilities found` · `Job succeeded` |
+**The first version of this proof was not good enough, and the ledger said more than it had earned.**
+That run used a **shell executor**, which silently ignores `image:` — so it executed on the author's
+laptop (`arch=arm64 os=darwin`) against a uv-managed venv, and the `python:3.12-slim` the config
+declares was never exercised. The gate did fire, and the red-then-green was real, but the claim
+"proven red-then-green" implied coverage of the declared environment that the evidence did not
+support. The runner was also a throwaway, deleted afterwards, leaving the pipeline dormant.
 
-The planted failure was pushed with `--no-verify`, so the *pre-push hook* could not block the very
-failure the *CI gate* was being asked to catch. Two gates, proven separately.
+Re-proving it on the declared executor **immediately found a defect the first proof structurally
+could not**: `test_bottleneck_is_the_llm_rung_once_it_is_sampled` asserted
+`llm_share_of_time_pct > 90`. True at 99.5% on a laptop; **89.4% inside a container**, because the
+deterministic phases are slower there. A performance test that encodes the author's hardware reports
+the machine it ran on, not the property it claims to check. It now asserts the relationship — the
+rung's share exceeds the entire deterministic pipeline, and rises monotonically with the firing rate
+— which is host-independent. That is exactly the "works on mine" class CI exists to catch, and a
+same-machine proof can never surface it.
 
-**The runner was then deleted, and `RUN_CI` deleted with it — in that order.** It ran on a laptop,
-and a CI gate that depends on one developer's machine being awake is not a gate; keeping it would
-have been a worse claim than not having it. Removing `RUN_CI` first matters: leaving it set with no
-runner attached is exactly what produced six meaningless red pipelines the first time round.
+| Check | Result |
+|---|---|
+| Executor and image actually used | `Using Docker executor with image python:3.12-slim` |
+| Runner persistence | systemd `enabled` + `active`; not a laptop |
+| Order of operations | `RUN_CI=1` set **only after** the API reported the runner `online` |
+| Config produces jobs | branch push created pipeline 16104 with a real job — no zero-jobs trap |
+| Defect found on first real run | one, host-dependent assertion, fixed |
 
-So the honest status is: **the config is proven to work and is currently dormant.** The pre-push
-hook remains the enforced gate (control 1). Re-enabling is one persistent runner plus `RUN_CI=1`,
-with no change to the config that produced the jobs above.
-
-Also verified along the way, and worth keeping: the suite is genuinely hermetic. Run with `.env`
-moved aside and an emptied environment, all tests pass — no test depends on a local credential, a
-live target, or a Bedrock call. The green job above confirms it on a machine with no `.env` at all.
+One prediction I made and got wrong, recorded because it was falsifiable: the sibling OpenEMR
+pipeline found six CVEs in `pip 25.0.1` bundled in `python:3.12-slim`, and I expected this pipeline
+to fail the same way. It did not. `uv sync` builds a venv that does not contain `pip`, so
+`uv run pip-audit` audits the project's locked dependency tree rather than the image's system
+interpreter. Same image, same tool, different scope — the reason is specific, not luck.
 
 ## Pre-push gate — live proof-of-firing (control #1)
 

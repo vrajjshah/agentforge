@@ -245,21 +245,23 @@ been watched blocking a planted failure and then passing — every control in
 [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md) ships with that proof, because a gate that has never
 been executed on anything has never told you anything.
 
-`.gitlab-ci.yml` runs the identical five checks and is **proven red-then-green on a real runner —
-and currently dormant**, which is a narrower claim than "we have CI" and the only one the evidence
-supports. A throwaway project runner was registered and the pipeline watched both ways:
-[job 55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) RED on a planted
-`assert 1 == 2` (`1 failed, 157 passed`), then
-[job 55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) GREEN on all five checks.
-The planted failure was pushed with `--no-verify` so the pre-push hook could not pre-empt the gate
-CI was being asked to prove.
+`.gitlab-ci.yml` runs the identical five checks and is **live** — every push and merge request, on
+**runner 192**: project-scoped, **docker executor**, image `python:3.12-slim`, on an always-on
+droplet under systemd. Proven red-then-green on that executor:
+[job 55744](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55744) RED on a planted
+`assert 1 == 2`, [job 55750](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55750) GREEN on
+all five, and main [pipeline 16108](https://labs.gauntletai.com/vrajshah/agentforge/-/pipelines/16108)
+green. The planted failure was pushed with `--no-verify` so the pre-push hook could not pre-empt the
+gate CI was being asked to prove. **The pre-push hook remains the primary gate**; CI is the copy that
+runs somewhere other than the author's machine.
 
-The runner was then deleted, and `RUN_CI` deleted with it, in that order — it ran on a laptop, and a
-gate that depends on one developer's machine being awake is not a gate. Order matters: `RUN_CI` set
-with no runner attached is what produced six meaningless red pipelines on an earlier attempt.
-Re-enabling is one persistent runner plus `RUN_CI=1`, with no change to the config that produced
-those jobs. **The pre-push hook remains the enforced gate.** The green job also confirms the suite
-is genuinely hermetic — it passed on a machine with no `.env` at all.
+An earlier version of this proof ran on a **shell executor**, which ignores `image:` — so the
+declared environment was never exercised, and the ledger claimed more than the evidence supported.
+Re-doing it properly paid for itself on the first run: it caught a test asserting
+`llm_share_of_time_pct > 90`, true on a laptop and **89.4% in a container**. A performance test that
+encodes the author's hardware reports the machine it ran on. That is the "works on mine" class CI
+exists for, and precisely what a same-machine proof cannot find. Details in
+[docs/GATE_LEDGER.md](docs/GATE_LEDGER.md).
 
 ## Submission URLs
 

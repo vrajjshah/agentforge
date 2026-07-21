@@ -1,22 +1,20 @@
 # ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-# │ STATUS: PROVEN, then intentionally dormant.                                                  │
+# │ STATUS: LIVE. This pipeline runs on every push and merge request.                            │
 # │                                                                                              │
-# │ This pipeline has been executed for real. A throwaway project runner (shell executor) was     │
-# │ registered, a failing test was planted, and the job was watched:                             │
+# │ Runner 192 "agentforge-ci" — project-scoped, docker executor, image python:3.12-slim, on an  │
+# │ always-on droplet under systemd (enabled + active, survives reboot). Not a laptop: a gate     │
+# │ that depends on one developer's machine being awake is not a gate.                            │
 # │                                                                                              │
-# │   RED   job 55608 — "FAILED tests/test_planted_failure.py - assert 1 == 2 / 1 failed,        │
-# │                     157 passed"  ->  ERROR: Job failed: exit status 1                        │
-# │   GREEN job 55610 — ruff "All checks passed!" · mypy "no issues found in 50 source files" ·  │
-# │                     "157 passed" · bandit clean · "No known vulnerabilities found"           │
-# │                     ->  Job succeeded                                                        │
+# │ Proven red-then-green on THIS executor and image, on a branch:                                │
+# │   RED   job 55744 — FAILED tests/test_planted_failure.py - assert 1 == 2                      │
+# │   GREEN job 55750 — ruff · mypy · 160 passed · bandit · pip-audit → Job succeeded             │
+# │   main  pipeline 16108 — success                                                              │
 # │                                                                                              │
-# │ The runner was then deleted, because it lived on a laptop and a CI gate that depends on one   │
-# │ developer's machine being awake is not a gate. RUN_CI was deleted with it, in that order:     │
-# │ leaving RUN_CI set with no runner attached is what produced six meaningless red pipelines     │
-# │ the first time round.                                                                        │
-# │                                                                                              │
-# │ TO RE-ENABLE: attach a persistent runner, then set RUN_CI=1. Nothing else needs to change —   │
-# │ this config is the one that produced the two jobs above.                                     │
+# │ An earlier proof ran on a SHELL executor, which silently ignores `image:` — so the declared   │
+# │ environment was never exercised and the claim was broader than the evidence. Re-proving it    │
+# │ here immediately caught a test that asserted `llm_share > 90`: true on the author's laptop,   │
+# │ 89.4% in a container. That is the defect class a same-machine proof cannot find, and the      │
+# │ whole reason this job runs somewhere else.                                                    │
 # └──────────────────────────────────────────────────────────────────────────────────────────────┘
 #
 # The same gate as .githooks/pre-push, run on a runner instead of a laptop.
@@ -36,16 +34,13 @@
 # variables block below — if a test ever needed a credential to pass, this job would fail and that
 # would be the correct outcome, not something to paper over with a CI variable.
 
-# Nothing here runs until someone sets RUN_CI=1 in the project's CI/CD variables — which should
-# happen at the same moment a runner is attached, and not before.
+# RUN_CI=1 is set on the project, and was set only AFTER the API reported the runner online.
 #
-# Learned the hard way: committing this file without the guard created a pipeline on every push,
-# each of which sat with no runner to pick it up and was then marked FAILED. Six red pipelines on
-# the repository, all of them meaningless. That is strictly worse than having no CI file at all —
-# a reviewer sees red and reads "their tests are broken", when the tests pass and there is simply
-# nothing to run them. `workflow:rules` suppresses pipeline *creation* entirely, so the config
-# stays reviewable and one variable away from working, without ever claiming a result it does not
-# have.
+# That order is the whole lesson. Committing this file without the guard, with no runner attached,
+# created a pipeline on every push that nothing could claim — six red pipelines, all meaningless.
+# A reviewer sees red and reads "their tests are broken". The guard stays because it is what makes
+# the file safe to carry while a runner is absent; it is not scaffolding to delete now that one
+# exists.
 workflow:
   rules:
     - if: $RUN_CI == "1"
