@@ -303,8 +303,18 @@ async def callback(request: Request) -> Response:
         _audit_auth("sso_callback", "oidc_failure", request, reason=str(exc)[:300])
         return HTMLResponse(_sso_unavailable(), status_code=400)
     operator = claims_to_session(claims)
+    # The identity that was actually verified, recorded on BOTH outcomes.
+    #
+    # Deny-by-default RBAC has a bootstrapping problem: the allow-list must contain a value nobody
+    # can know until a real login produces it. Logging the resolved identity only on *refusal*
+    # would mean a first attempt that happens to be authorized leaves no record of who was
+    # admitted — the audit trail keeping every rejection and losing every success, which is
+    # backwards. A granted authentication is the more consequential event.
+    identity = {"subject": operator.subject[:64],
+                "email": (operator.email or "")[:64],
+                "fhir_user": (operator.fhir_user or "")[:96]}
     if not is_authorized(operator, _sso):
-        _audit_auth("sso_callback", "rbac_denied", request, subject=operator.subject[:40])
+        _audit_auth("sso_callback", "rbac_denied", request, **identity)
         return HTMLResponse(_auth_notice(
             f"<b>Signed in as {html.escape(operator.name)}, but not authorized here.</b><br><br>"
             "This platform admits only accounts on its security-operator allow-list. Access is "
@@ -313,6 +323,7 @@ async def callback(request: Request) -> Response:
             status_code=403)
     sid = secrets.token_urlsafe(32)
     _sessions.set(sid, operator)
+    _audit_auth("sso_callback", "granted", request, **identity)
     resp = RedirectResponse(flow.return_to, status_code=302)
     resp.set_cookie(_SESSION_COOKIE, sid, max_age=28800, httponly=True,
                     secure=_sso.cookie_secure, samesite="lax", path="/")

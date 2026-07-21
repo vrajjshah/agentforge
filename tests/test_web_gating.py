@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 import pytest
@@ -281,3 +281,40 @@ async def test_unhandled_errors_do_not_leak_internals(
     assert "Something went wrong" in r.text
     assert "/srv/secret/path" not in r.text
     assert "Traceback" not in r.text
+
+
+async def test_sso_records_the_verified_identity_on_both_outcomes(
+        web_app: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Deny-by-default RBAC has a bootstrapping problem: the allow-list must contain a value nobody
+    can know until a real login produces it. So the resolved identity is recorded whether the
+    operator was admitted or refused — an audit trail that keeps every rejection and loses every
+    success is backwards, and it would also make the allow-list impossible to populate.
+    """
+    import dataclasses
+
+    from agentforge.auth.session import OperatorSession
+    from agentforge.stores.ledger import EventLedger, EventType
+
+    monkeypatch.setattr(web_app, "_settings",
+                        dataclasses.replace(web_app._settings, data_dir=tmp_path / "d"))
+    op = OperatorSession(subject="a2348815-c7ae-4eea-bb78-34517eef9cee", name="Administrator",
+                         email="admin@example.test", fhir_user="Practitioner/a2348815")
+
+    class _Req:
+        headers: ClassVar[dict[str, str]] = {}
+        client = None
+
+    for outcome in ("granted", "rbac_denied"):
+        web_app._audit_auth("sso_callback", outcome, _Req(), subject=op.subject[:64],
+                            email=(op.email or "")[:64], fhir_user=(op.fhir_user or "")[:96])
+
+    ledger = EventLedger(tmp_path / "d" / "ledger.db")
+    try:
+        events = ledger.events(event_type=EventType.AUTH_ACCESS)
+    finally:
+        ledger.close()
+    by_outcome = {e["payload"]["outcome"]: e["payload"] for e in events}
+    assert {"granted", "rbac_denied"} <= set(by_outcome)
+    for payload in by_outcome.values():
+        assert payload["subject"] == op.subject      # the value the allow-list needs
+        assert payload["email"] == op.email
