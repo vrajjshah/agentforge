@@ -34,6 +34,34 @@ and the reproducible evidence command.
 | 22 | **Held-back ≠ tested** | evals | a write variant refused by `--safe-live` | recorded as `blocked-live-safety`, excluded from the pass-rate denominator, shown as "+N held back" | a fired variant is judged normally | `pytest tests/test_judge.py::test_blocked_by_live_safety_is_distinguishable_from_a_transport_error` |
 | 23 | **Live-safety blocks writes, not reads** | Red Team | `GET /week2/patients/1/provisional` under a `/provisional` block | allowed (a read cannot mutate) | `PATCH /week2/provisional/1` → `CapabilityViolation` | `pytest tests/test_redteam.py::test_live_safety_blocks_writes_but_not_reads_on_a_shared_prefix` |
 | 24 | **Judge-calibration headline is the held-out score** | calibration | publish the score measured on the set the rubric was tuned against | the dashboard headline stays the held-out number; the in-sample one is carried but labelled | held-out result present → published | `pytest tests/test_judge_calibration.py::test_published_headline_is_the_held_out_score` · `::test_holdout_is_disjoint_from_the_development_set` |
+| 25 | **Load test never fires at the live target** | loadtest | point the burst at a live deployment | execution is bound to an in-process ASGI transport; a run cannot reach the network | the ephemeral build serves all 100 attacks | `pytest tests/test_loadtest.py::test_loadtest_never_touches_the_live_target` |
+| — | ~~**GitLab CI pipeline**~~ | CI | *(not planted)* | *(never observed)* | *(never observed)* | **NO PROOF-OF-FIRING — see below. Not a gate.** |
+
+## The one control with no proof-of-firing (`.gitlab-ci.yml`)
+
+`.gitlab-ci.yml` is committed and runs the same five checks as the pre-push hook. **It has never
+executed, and it is not counted as a control.** No runner is attached to the project
+(`labs.gauntletai.com/vrajshah/agentforge`, id 1564):
+
+| Evidence | Value |
+|---|---|
+| `shared_runners_enabled` | `false` |
+| project runners (`/projects/1564/runners`) | `[]` |
+| instance runners (`?type=instance_type`) | `[]` |
+| pipelines in project history (`/projects/1564/pipelines`) | `[]` |
+| `jobs_enabled` | `true` (CI is *enabled*; there is simply nothing to run it) |
+
+By this ledger's own rule — *a control without a proof-of-firing row is not done* — that makes it a
+config file, not a gate, and it is labelled that way in the file itself. The **pre-push hook remains
+the primary gate** (control 1), as in Weeks 1 and 2.
+
+What *was* verified by hand, because it is the check CI would have bought soonest: the suite is
+genuinely hermetic. Run with `.env` moved aside and an emptied environment
+(`env -i PATH=… HOME=… uv run pytest`), **all 122 tests pass** — no test depends on a local
+credential, a live target, or a Bedrock call. A green suite here is green on a bare runner too.
+
+To promote it once a runner exists: plant a failing test, push, watch the job go red on "1 failed",
+remove it, push, watch it go green — then move it into the table above with both job URLs.
 
 ## Pre-push gate — live proof-of-firing (control #1)
 

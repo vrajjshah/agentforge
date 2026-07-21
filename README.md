@@ -199,6 +199,22 @@ reports/               generated vulnerability reports  ·  docs/  gate & exploi
 fixtures/drift/        frozen, signed goldens for Judge drift detection
 ```
 
+## The gate
+
+`ruff · mypy --strict · pytest · bandit · pip-audit`, run by a **blocking pre-push hook**
+(`.githooks/pre-push`; `git config core.hooksPath .githooks`). It is the primary gate, and it has
+been watched blocking a planted failure and then passing — every control in
+[docs/GATE_LEDGER.md](docs/GATE_LEDGER.md) ships with that proof, because a gate that has never
+been executed on anything has never told you anything.
+
+`.gitlab-ci.yml` runs the identical five checks, and is **explicitly not counted as a gate**: no
+runner is attached to the project (`shared_runners_enabled=false`, zero runners, zero pipelines
+ever), so it has never executed. It is committed labelled rather than quietly presented as CI —
+the ledger records it as the one control with no proof-of-firing, with the exact red-then-green
+procedure to promote it once a runner exists. What *was* verified by hand is the thing CI would
+have caught soonest: with `.env` moved aside and an emptied environment, all 122 tests still pass,
+so nothing in the suite depends on a local credential or a live service.
+
 ## Submission URLs
 
 1. **Platform repository:** https://labs.gauntletai.com/vrajshah/agentforge

@@ -1,0 +1,71 @@
+# ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+# │ STATUS: NOT VERIFIED. This pipeline has never executed. No runner is attached to the project  │
+# │ (labs.gauntletai.com/vrajshah/agentforge, id 1564): shared_runners_enabled=false, zero        │
+# │ project runners, zero instance runners, zero pipelines in the project's history. Committing   │
+# │ it changes nothing about what is actually enforced today.                                     │
+# │                                                                                               │
+# │ It is committed anyway because the config is the part that can be written now and the runner  │
+# │ is the part that cannot — but it is labelled, not counted. docs/GATE_LEDGER.md lists it as    │
+# │ the one control with NO proof-of-firing, and the ledger's own rule is that such a control is  │
+# │ not done. Treating a green-looking YAML file as a gate is precisely the failure the ledger    │
+# │ exists to prevent: a scan that can never fail never told you anything.                        │
+# │                                                                                               │
+# │ TO PROMOTE IT, once a runner is attached (Settings → CI/CD → Runners):                        │
+# │   1. plant a failure:  echo 'def test_x(): assert 1 == 2' > tests/test_planted_failure.py     │
+# │   2. push the branch, watch this job go RED on "1 failed"                                     │
+# │   3. rm tests/test_planted_failure.py, push, watch it go GREEN                                │
+# │   4. only then move it into the gate ledger as a proven control, with the two job URLs        │
+# └──────────────────────────────────────────────────────────────────────────────────────────────┘
+#
+# The same gate as .githooks/pre-push, run on a runner instead of a laptop.
+#
+# The hook is the *primary* gate and stays that way — it is the one that has been watched blocking
+# a planted failure (docs/GATE_LEDGER.md control 1), same as Weeks 1 and 2. This file would layer
+# on top so the gate also runs on a machine that is not the author's, which is the only way it
+# catches "works on mine" — an unpinned dependency, a test that passes only because a local .env
+# exists, a file that was never committed.
+#
+# The middle one of those is already ruled out by hand: the suite was run with .env moved aside and
+# an emptied environment, and all 122 tests passed. That is the check CI would have bought us
+# soonest, so it was worth not waiting for a runner to find out.
+#
+# Nothing here needs a secret. The suite is hermetic by design (no network, no Bedrock, no live
+# target: `pytest` is configured with `-m 'not live'`), which is verified by the absence of any
+# variables block below — if a test ever needed a credential to pass, this job would fail and that
+# would be the correct outcome, not something to paper over with a CI variable.
+
+default:
+  image: python:3.12-slim
+  interruptible: true
+  cache:
+    key:
+      files:
+        - uv.lock
+    paths:
+      - .venv/
+      - .cache/uv/
+
+variables:
+  UV_CACHE_DIR: .cache/uv
+  # Fail on a lockfile that does not match pyproject.toml rather than silently resolving around it.
+  UV_FROZEN: "1"
+
+stages:
+  - gate
+
+gate:
+  stage: gate
+  before_script:
+    - pip install --quiet --no-cache-dir uv
+    - uv sync --frozen
+  script:
+    # Same order as .githooks/pre-push, cheapest first, so a lint break fails in seconds.
+    - echo "▶ gate:: ruff · mypy --strict · pytest · bandit · pip-audit"
+    - uv run ruff check src tests
+    - uv run mypy src
+    - uv run pytest
+    - uv run bandit -q -r src
+    - uv run pip-audit
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
