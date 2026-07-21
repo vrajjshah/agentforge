@@ -267,6 +267,29 @@ is genuinely hermetic — it passed on a machine with no `.env` at all.
 2. **Deployed platform (dashboard):** https://agentforge-web-production-c891.up.railway.app
 3. **Target application repository:** the OpenEMR fork hosting the Clinical Co-Pilot.
 
+### Reviewer access to the gated detail
+
+The dashboard is deliberately split: **posture is public** (pass rate, per-category and per-severity
+counts, the calibration figures, "defense held") and **reproduction is not**. Vulnerability reports
+contain working attack sequences against a clinical system, so `/reports/*` returns **403** to an
+anonymous visitor — including a reviewer. That is the platform applying its own finding to itself,
+not an oversight.
+
+Two ways in, both landing on the same gated view:
+
+| Route | Who it is for | Where |
+|---|---|---|
+| **Log in with OpenEMR** (OIDC + PKCE, RBAC allow-list) | the platform owner, who has an OpenEMR account | `/login` |
+| **Operator token** (break-glass, POST-only, constant-time compare, every use audited) | a reviewer, who does not | `/login/token` |
+
+**The token is supplied with the submission, not in this repository** — it is a live credential for
+a deployed service, and a secret committed to a repo is a secret published. It lives only in the
+deployed service's `AGENTFORGE_ADMIN_TOKEN` environment variable. Clearing that variable revokes
+every live break-glass session immediately, which is how access is withdrawn after review.
+
+Every use of it — served, granted, *and denied* — is appended to the platform's own append-only
+audit ledger by a writer that may record nothing else.
+
 ## Scope, safety & data
 
 Authorized security testing of **our own** application, run in an **isolated sandbox** seeded with
