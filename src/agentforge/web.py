@@ -166,6 +166,44 @@ def _sanitized(d: dict[str, Any]) -> dict[str, Any]:
     return public
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next: Any) -> Response:
+    """Headers the dashboard can afford to set at maximum strictness.
+
+    The page is self-contained by design — no CDN, no external fonts, no third-party scripts — so
+    a CSP that forbids every remote origin costs nothing here and closes injected-script and
+    clickjacking classes outright. ``frame-ancestors 'none'`` matters more than usual: the target
+    under test is an EMR that embeds itself in an iframe, and a security console that can be framed
+    is a console that can be clickjacked into triggering a run.
+    """
+    response: Response = await call_next(request)
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
+        "img-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception) -> Response:
+    """Never hand a reviewer a stack trace or a framework default 500.
+
+    The detail is logged with the traceback and the response says only that something failed —
+    an error body is an information-disclosure surface, and this service's errors can name
+    internal paths, the identity provider, and the target.
+    """
+    _log.exception("unhandled error on %s %s", request.method, request.url.path)
+    return HTMLResponse(_auth_notice(
+        "Something went wrong handling that request. It has been logged.",
+        title="Something went wrong",
+        actions="<a class='btn' href='/'>Back to the dashboard</a>"), status_code=500)
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"service": "agentforge", "status": "ok"})

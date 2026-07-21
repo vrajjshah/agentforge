@@ -210,7 +210,8 @@ src/agentforge/
   bedrock.py           model access (Anthropic SDK for Claude, Bedrock converse for the attacker)
   graph.py             the LangGraph campaign loop  ·  web.py  the dashboard service
 contracts/v1/          exported, versioned JSON Schema  ·  evals/  the reproducible eval dataset
-reports/               generated vulnerability reports  ·  docs/  gate & exploit ledgers, diagrams
+reports/               generated vulnerability reports  ·  docs/  gate & exploit ledgers, diagrams,
+                       cost & load baselines, scan triage, build-vs-configure record, evidence packet
 fixtures/drift/        frozen, signed goldens for Judge drift detection
 ```
 

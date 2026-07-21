@@ -248,3 +248,36 @@ async def test_callback_failure_is_a_clean_notice_not_a_raw_error(
     assert "Traceback" not in r.text
     # A working alternative is offered, since one exists on this deployment.
     assert "/login/token" in r.text
+
+
+# --- findings 11 and 12 from docs/SCAN_TRIAGE.md, actually fixed ------------------------------
+async def test_security_headers_are_set(web_app: Any) -> None:
+    """The page is self-contained, so the strictest CSP costs nothing. frame-ancestors matters
+    most: a security console that can be framed can be clickjacked into triggering a run."""
+    async with _client(web_app) as c:
+        r = await c.get("/")
+    csp = r.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "no-referrer"
+    assert "max-age=" in r.headers["strict-transport-security"]  # base_url is https
+
+
+async def test_unhandled_errors_do_not_leak_internals(
+        web_app: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An error body is an information-disclosure surface: this service's exceptions can name
+    internal paths, the identity provider, and the target under test."""
+    def boom() -> dict[str, Any]:
+        raise RuntimeError("internal detail /srv/secret/path leaked here")
+
+    monkeypatch.setattr(web_app, "_dashboard_data", boom)
+    async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=web_app.app, raise_app_exceptions=False),
+            base_url="https://af.test") as c:
+        r = await c.get("/")
+    assert r.status_code == 500
+    assert "Something went wrong" in r.text
+    assert "/srv/secret/path" not in r.text
+    assert "Traceback" not in r.text
