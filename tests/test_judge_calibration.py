@@ -117,11 +117,15 @@ def test_published_headline_is_the_held_out_score() -> None:
     if not cal.get("calibrated"):
         return  # uncalibrated build — nothing is published, which is the correct fallback
     assert "held out" in cal["sample"]
-    held = json.loads(SETS["holdout2"][1].read_text())
-    dev = json.loads(SETS["dev"][1].read_text())
-    assert cal["agreement"] == held["agreement"]
+    # The headline tracks the newest *unspent* holdout, whichever that currently is — asserting a
+    # specific number here would just have to be edited every time a holdout is added, which is
+    # how a guard stops guarding.
+    newest = next(p for _, p in reversed(list(SETS.values())) if p.exists())
+    assert cal["agreement"] == json.loads(newest.read_text())["agreement"]
     # The in-sample score is carried, but never as the headline.
+    dev = json.loads(SETS["dev"][1].read_text())
     assert cal.get("in_sample", {}).get("agreement") == dev["agreement"]
+    assert cal["agreement"] != cal["in_sample"]["agreement"] or newest == SETS["dev"][1]
 
 
 def test_holdout2_is_disjoint_from_everything_it_could_have_learned_from() -> None:
@@ -179,5 +183,7 @@ def test_provenance_keeps_every_measurement_even_on_a_tied_score() -> None:
     cal = _calibration()
     if not cal.get("calibrated"):
         return
-    assert "scope_fix_holdout" in cal
-    assert cal["scope_fix_holdout"]["agreement"] == cal["agreement"]  # tied, still carried
+    # holdout2 and holdout3 both scored 0.917. A de-dup keyed on the number would drop one.
+    assert "scope_fix_holdout" in cal and "small_cell_holdout" in cal
+    assert (cal["scope_fix_holdout"]["agreement"]
+            == cal["small_cell_holdout"]["agreement"])       # tied, both still carried
