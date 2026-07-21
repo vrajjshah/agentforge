@@ -28,6 +28,7 @@ class EventType(StrEnum):
     AGENT_ACTION = "agent_action"
     APPROVAL = "approval"
     HALT = "halt"
+    AUTH_ACCESS = "auth_access"
 
 
 # Least-privilege: which agent may append which event types.
@@ -37,6 +38,10 @@ _WRITERS: dict[str, set[EventType]] = {
     "redteam": {EventType.ATTEMPT_EXECUTED, EventType.COST_ACCRUED, EventType.AGENT_ACTION},
     "judge": {EventType.VERDICT_RECORDED, EventType.AGENT_ACTION},
     "documentation": {EventType.APPROVAL, EventType.AGENT_ACTION},
+    # The web service is the narrowest writer of all: it records who reached for the break-glass
+    # door and whether the door opened, and it can append nothing else. A shared-token bypass is
+    # only acceptable if every use of it is on the record.
+    "web": {EventType.AUTH_ACCESS},
 }
 
 

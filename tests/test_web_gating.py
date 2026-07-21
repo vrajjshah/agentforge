@@ -172,3 +172,79 @@ async def test_report_path_traversal_still_blocked(web_app: Any) -> None:
     async with _client(web_app) as c:
         r = await c.get("/reports/..%2F..%2Fpyproject.toml", headers={"x-admin-token": _TOKEN})
     assert r.status_code == 404
+
+
+# --- break-glass is auditable, and the UI never advertises a dead route --------------------------
+async def test_break_glass_use_is_recorded_in_the_ledger(
+        web_app: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A shared-token bypass is only defensible if every reach for it is on the record — the
+    failures especially, since a run of `denied` is how token-guessing shows up."""
+    import dataclasses
+
+    from agentforge.stores.ledger import EventLedger, EventType
+
+    monkeypatch.setattr(web_app, "_settings",
+                        dataclasses.replace(web_app._settings, data_dir=tmp_path / "d"))
+    async with _client(web_app) as c:
+        await c.post("/login/token", data={"token": "wrong"}, follow_redirects=False)
+        await c.post("/login/token", data={"token": _TOKEN}, follow_redirects=False)
+
+    ledger = EventLedger(tmp_path / "d" / "ledger.db")
+    try:
+        events = ledger.events(event_type=EventType.AUTH_ACCESS)
+    finally:
+        ledger.close()
+    outcomes = [e["payload"]["outcome"] for e in events]
+    assert "denied" in outcomes and "granted" in outcomes
+    assert all(e["agent"] == "web" for e in events)
+    # The token itself is never written anywhere.
+    assert _TOKEN not in json.dumps(events)
+
+
+async def test_ledger_writer_for_auth_is_least_privilege() -> None:
+    """The web service may record auth events and nothing else."""
+    import tempfile
+
+    from agentforge.stores.ledger import EventLedger as _L
+    from agentforge.stores.ledger import EventType, WriterNotAuthorized
+
+    with tempfile.TemporaryDirectory() as d:
+        ledger = _L(Path(d) / "l.db")
+        try:
+            ledger.append(agent="web", event_type=EventType.AUTH_ACCESS, run_id="r", payload={})
+            with pytest.raises(WriterNotAuthorized):
+                ledger.append(agent="web", event_type=EventType.VERDICT_RECORDED,
+                              run_id="r", payload={})
+        finally:
+            ledger.close()
+
+
+async def test_one_sign_in_control_and_no_dead_buttons(web_app: Any) -> None:
+    """Two competing 'Log in with OpenEMR' buttons both pointing at a broken IdP made the page
+    read as broken. One control in the header; the findings panel gets a quiet inline link."""
+    async with _client(web_app) as c:
+        page = (await c.get("/")).text
+    assert page.count("class='toggle primary'") == 1          # exactly one header control
+    assert "Log in with OpenEMR" not in page                  # the choice lives on the sign-in page
+    assert "Sign in to view" in page                          # quiet inline link instead
+    assert page.count("/login/token") >= 1
+
+
+async def test_sign_in_page_offers_both_routes_sso_first(web_app: Any) -> None:
+    async with _client(web_app) as c:
+        page = (await c.get("/login/token")).text
+    assert page.index("Log in with OpenEMR") < page.index("Sign in with token")
+    assert "audit ledger" in page
+
+
+async def test_callback_failure_is_a_clean_notice_not_a_raw_error(
+        web_app: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A reviewer must never meet a bare 400 body or a stack trace, and the identity provider's
+    internal reason must never reach the browser."""
+    async with _client(web_app) as c:
+        r = await c.get("/callback?error=access_denied&state=x")
+    assert r.status_code == 400
+    assert "isn't available yet" in r.text
+    assert "Traceback" not in r.text
+    # A working alternative is offered, since one exists on this deployment.
+    assert "/login/token" in r.text

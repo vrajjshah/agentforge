@@ -29,6 +29,7 @@ from agentforge.auth.pkce import pkce_pair
 from agentforge.auth.rbac import is_authorized
 from agentforge.auth.session import AuthFlow, AuthFlowStore, OperatorSession, SessionStore
 from agentforge.config import Settings
+from agentforge.stores.ledger import EventLedger, EventType
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _EVALS = Path(os.environ.get("AGENTFORGE_EVALS_DIR", str(_REPO_ROOT / "evals")))
@@ -51,6 +52,10 @@ _BREAK_GLASS_SUB = "break-glass"
 def _current_operator(request: Request) -> OperatorSession | None:
     sid = request.cookies.get(_SESSION_COOKIE)
     return _sessions.get(sid) if sid else None
+
+
+def _break_glass_enabled() -> bool:
+    return bool(os.environ.get("AGENTFORGE_ADMIN_TOKEN"))
 
 
 def _admin_token_ok(supplied: str | None) -> bool:
@@ -77,7 +82,7 @@ def _authorized(operator: OperatorSession | None) -> bool:
     if operator is None:
         return False
     if operator.subject == _BREAK_GLASS_SUB:
-        return bool(os.environ.get("AGENTFORGE_ADMIN_TOKEN"))
+        return _break_glass_enabled()
     return is_authorized(operator, _sso)
 
 
@@ -92,6 +97,32 @@ def _may_view_detail(request: Request,
     if _authorized(_current_operator(request)):
         return True
     return _admin_token_ok(x_admin_token or request.headers.get("x-admin-token"))
+
+
+def _audit_auth(action: str, outcome: str, request: Request, **extra: Any) -> None:
+    """Record a break-glass access on the append-only ledger *and* the service log.
+
+    A shared-token bypass is only defensible if every reach for it is on the record, including the
+    failures — an unexplained run of ``denied`` is the signal that someone is guessing. Two sinks
+    on purpose: the ledger is the in-platform audit trail with the least-privilege writer, and
+    stdout is what survives a container redeploy on an ephemeral filesystem.
+
+    Never fatal. An audit sink that can take the login down with it would be a worse bug than the
+    one it is guarding, so a failed append degrades to a logged warning.
+    """
+    ua = (request.headers.get("user-agent") or "")[:120]
+    client = request.client.host if request.client else "unknown"
+    _log.warning("auth: %s %s client=%s ua=%r %s", action, outcome, client, ua, extra or "")
+    try:
+        ledger = EventLedger(_settings.data_dir / "ledger.db")
+        try:
+            ledger.append(agent="web", event_type=EventType.AUTH_ACCESS, run_id="web-auth",
+                          payload={"action": action, "outcome": outcome, "client": client,
+                                   "user_agent": ua, **extra})
+        finally:
+            ledger.close()
+    except Exception as exc:  # pragma: no cover - audit must never break the request path
+        _log.warning("auth: ledger append failed (%s): %s", type(exc).__name__, exc)
 
 
 def _safe_return_to(raw: str | None) -> str:
@@ -172,7 +203,7 @@ async def run(category: str, request: Request,
             raise HTTPException(status_code=403, detail="not an authorized security-operator")
         return JSONResponse({"accepted": category, "operator": operator.name,
                              "note": "run via CLI; results land in ./evals/"})
-    if _sso.enabled and not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+    if _sso.enabled and not _break_glass_enabled():
         raise HTTPException(status_code=401, detail="login required (Log in with OpenEMR)")
     admin = os.environ.get("AGENTFORGE_ADMIN_TOKEN", "")
     if not admin:
@@ -205,29 +236,43 @@ async def callback(request: Request) -> Response:
     if not _sso.enabled:
         raise HTTPException(status_code=503, detail="SSO not configured")
     if err := request.query_params.get("error"):
-        return HTMLResponse(_auth_notice(f"Login failed: {html.escape(err)}"), status_code=400)
+        _audit_auth("sso_callback", "idp_error", request, error=str(err)[:120])
+        return HTMLResponse(_sso_unavailable(f"OpenEMR returned: {html.escape(err)}"),
+                            status_code=400)
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     if not code or not state or state != request.cookies.get(_STATE_COOKIE):
         _log.warning("SSO callback: state check failed (query vs cookie mismatch or missing)")
-        return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
+        return HTMLResponse(_auth_notice(
+            "<b>That sign-in link has expired.</b><br><br>Start again from the dashboard — the "
+            "one-time login state is single-use, so a refreshed or bookmarked callback URL will "
+            "always land here.", title="Sign-in expired", actions=_signin_actions()),
+            status_code=400)
     flow = _flows.pop(state)  # single-use — replay refused
     if flow is None:
         _log.warning("SSO callback: no live auth-flow for state (expired or replayed)")
-        return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
+        return HTMLResponse(_auth_notice(
+            "<b>That sign-in link has expired.</b><br><br>Start again from the dashboard.",
+            title="Sign-in expired", actions=_signin_actions()), status_code=400)
     try:
         tokens = await _oidc.exchange_code(code, flow.code_verifier, flow.redirect_uri)
         claims = _oidc.verify_id_token(tokens["id_token"], flow.nonce)
     except OidcError as exc:
-        # Log the specific reason server-side (never leaked to the browser). A token-exchange
-        # failure here usually means the OpenEMR OAuth client is not yet enabled by an admin.
+        # The specific reason is logged server-side and never shown to the browser — it describes
+        # the identity provider's internals. A token-exchange failure here usually means the
+        # OpenEMR OAuth client has not been enabled by an admin yet.
         _log.warning("SSO callback: OIDC failure: %s", exc)
-        return HTMLResponse(_auth_notice("Could not verify your OpenEMR login."), status_code=400)
+        _audit_auth("sso_callback", "oidc_failure", request, reason=type(exc).__name__)
+        return HTMLResponse(_sso_unavailable(), status_code=400)
     operator = claims_to_session(claims)
     if not is_authorized(operator, _sso):
-        return HTMLResponse(
-            _auth_notice(f"Signed in as {html.escape(operator.name)}, but your account is not an "
-                         "authorized security-operator for this platform."), status_code=403)
+        _audit_auth("sso_callback", "rbac_denied", request, subject=operator.subject[:40])
+        return HTMLResponse(_auth_notice(
+            f"<b>Signed in as {html.escape(operator.name)}, but not authorized here.</b><br><br>"
+            "This platform admits only accounts on its security-operator allow-list. Access is "
+            "deny-by-default, so an unconfigured allow-list refuses everyone — including the "
+            "right person.", title="Not an authorized operator", actions=_signin_actions()),
+            status_code=403)
     sid = secrets.token_urlsafe(32)
     _sessions.set(sid, operator)
     resp = RedirectResponse(flow.return_to, status_code=302)
@@ -246,23 +291,31 @@ async def login_token_form(request: Request) -> Response:
     Disabled unless ``AGENTFORGE_ADMIN_TOKEN`` is set. POST-only submission — a token must never
     ride in a URL, where it would land in proxy and browser-history logs.
     """
-    if not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+    if not _break_glass_enabled():
         raise HTTPException(status_code=404, detail="break-glass login not enabled")
-    return HTMLResponse(_BREAK_GLASS_PAGE.replace(
-        "__RETURN__", html.escape(_safe_return_to(request.query_params.get("return_to")))))
+    _audit_auth("break_glass_form", "served", request)
+    return HTMLResponse(
+        _BREAK_GLASS_PAGE
+        .replace("__SSO__", _SSO_BLOCK if _sso.enabled else "")
+        .replace("__RETURN__",
+                 html.escape(_safe_return_to(request.query_params.get("return_to")))))
 
 
 @app.post("/login/token")
 async def login_token(request: Request) -> Response:
-    if not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+    if not _break_glass_enabled():
         raise HTTPException(status_code=404, detail="break-glass login not enabled")
     form = await _urlencoded_form(request)
     if not _admin_token_ok(form.get("token")):
-        _log.warning("break-glass login: bad token from %s", request.client)
-        return HTMLResponse(_auth_notice("Invalid operator token."), status_code=401)
+        _audit_auth("break_glass_login", "denied", request)
+        return HTMLResponse(_auth_notice(
+            "<b>That operator token was not accepted.</b><br><br>Check for a stray space or a "
+            "truncated paste. This attempt has been recorded in the platform's audit ledger."
+        ), status_code=401)
     sid = secrets.token_urlsafe(32)
     _sessions.set(sid, OperatorSession(subject=_BREAK_GLASS_SUB, name="break-glass operator",
                                        email=None, fhir_user=None, roles=("security-operator",)))
+    _audit_auth("break_glass_login", "granted", request, session_prefix=sid[:8])
     resp = RedirectResponse(_safe_return_to(form.get("return_to")), status_code=302)
     resp.set_cookie(_SESSION_COOKIE, sid, max_age=28800, httponly=True,
                     secure=_sso.cookie_secure, samesite="lax", path="/")
@@ -311,9 +364,55 @@ async def dashboard(request: Request) -> Response:
     return HTMLResponse(_render(_dashboard_data(), operator, _may_view_detail(request)))
 
 
-def _auth_notice(message: str) -> str:
-    return (_REPORT_PAGE.replace("__NAME__", "AgentForge — sign in")
-            .replace("__BODY__", message).replace("<pre>", "<p>").replace("</pre>", "</p>"))
+def _signin_path() -> str:
+    """The single entry point for signing in.
+
+    When break-glass is configured the sign-in page offers both routes — OpenEMR first as the
+    primary path, the operator token beneath it as the fallback — so one control in the header
+    covers both and no button in the UI leads somewhere that cannot currently work.
+    """
+    if _break_glass_enabled():
+        return "/login/token"
+    return "/login" if _sso.enabled else ""
+
+
+def _auth_notice(message: str, title: str = "Sign in", actions: str = "") -> str:
+    """A clean, styled notice — never a bare 400 body or a stack trace in front of a reviewer."""
+    return (_NOTICE_PAGE.replace("__TITLE__", title)
+            .replace("__BODY__", message)
+            .replace("__ACTIONS__", actions))
+
+
+def _sso_unavailable(detail: str = "") -> str:
+    """The honest page for a live SSO that is not working yet.
+
+    Says so plainly and points at a route that does work, rather than leaving a reviewer staring
+    at a bare 400. The underlying reason stays server-side: it describes the identity provider's
+    internal state, which is not a browser's business.
+    """
+    fallback = (
+        "<br><br>An operator token will get you in meanwhile — use the button below."
+        if _break_glass_enabled() else
+        "<br><br>Ask the platform owner for access while this is being fixed."
+    )
+    extra = f"<br><br><span class=dim>{detail}</span>" if detail else ""
+    return _auth_notice(
+        "The connection to the OpenEMR identity provider is still being set up, so it could not "
+        "complete your login. This is a configuration issue on our side, not something you did "
+        "wrong." + fallback + extra,
+        title="Sign-in with OpenEMR isn't available yet", actions=_signin_actions())
+
+
+def _signin_actions() -> str:
+    """Whatever sign-in routes actually work right now, offered from an error page."""
+    buttons = []
+    if _break_glass_enabled():
+        buttons.append("<a class='btn primary' href='/login/token'>Sign in with an operator "
+                       "token</a>")
+    if _sso.enabled:
+        buttons.append("<a class='btn' href='/login'>Try OpenEMR again</a>")
+    buttons.append("<a class='btn' href='/'>Back to the dashboard</a>")
+    return "".join(buttons)
 
 
 def _auth_ui(operator: OperatorSession | None) -> str:
@@ -321,11 +420,8 @@ def _auth_ui(operator: OperatorSession | None) -> str:
         return (f"<span class=who title='authenticated security-operator'>"
                 f"<span class=who-dot></span>{_esc(operator.name)}</span>"
                 f"<a class=toggle href='/logout'>Sign out</a>")
-    if _sso.enabled:
-        return "<a class='toggle primary' href='/login'>Log in with OpenEMR</a>"
-    if os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
-        return "<a class='toggle primary' href='/login/token'>Operator sign-in</a>"
-    return ""
+    path = _signin_path()
+    return f"<a class='toggle primary' href='{path}'>Sign in</a>" if path else ""
 
 
 # --------------------------------------------------------------------------------------
@@ -429,9 +525,10 @@ def _findings_section(findings: list[dict[str, Any]], detail: bool) -> str:
     counts = _severity_counts(findings)
     pills = "".join(_sev_pill(sev) + f"<span class=lk-n>{counts[sev]}</span>"
                     for sev in sorted(counts, key=lambda s: _SEV_RANK.get(s, 9)))
-    sign_in = ("<a class='toggle primary' href='/login'>Log in with OpenEMR</a>" if _sso.enabled
-               else ("<a class='toggle primary' href='/login/token'>Operator sign-in</a>"
-                     if os.environ.get("AGENTFORGE_ADMIN_TOKEN") else ""))
+    # A quiet inline link, not a second competing button — the header already carries the one
+    # sign-in control, and two primary buttons pointing at the same place read as a broken page.
+    path = _signin_path()
+    sign_in = (f" <a class=lk-link href='{path}'>Sign in to view</a>" if path else "")
     return (
         f"{head}"
         "<div class=lead>Counts are public; reproduction is not. Each report below contains a "
@@ -442,10 +539,8 @@ def _findings_section(findings: list[dict[str, Any]], detail: bool) -> str:
         "<div class='card locked'><div class=lk-top>"
         f"<span class=lk-icon aria-hidden=true>🔒</span><div><div class=lk-h>"
         f"{len(findings)} finding{'' if len(findings) == 1 else 's'} — detail restricted</div>"
-        "<div class=lk-sub>Severity breakdown and posture are shown below; reproduction steps are "
-        "operator-only.</div></div></div>"
+        f"<div class=lk-sub>Reproduction is operator-only.{sign_in}</div></div></div>"
         f"<div class=lk-pills>{pills}</div>"
-        f"{'<div class=lk-cta>' + sign_in + '</div>' if sign_in else ''}"
         "</div>"
     )
 
@@ -657,29 +752,74 @@ _REPORT_PAGE = (
     "<p><a href='/'>← back to dashboard</a></p><pre>__BODY__</pre>"
 )
 
+# Shared chrome for the small standalone pages (sign-in, notices). Same tokens as the dashboard,
+# inlined — no CDN anywhere in this service.
+_MINI_CSS = (
+    "<style>:root{color-scheme:light dark;--bg:#080c14;--card:#0f1826;--bd:#1e2b3d;--ink:#e6edf7;"
+    "--dim:#9fb1c7;--accent:#818cf8}"
+    "@media(prefers-color-scheme:light){:root{--bg:#f6f8fb;--card:#fff;--bd:#e5eaf0;--ink:#0f172a;"
+    "--dim:#475569;--accent:#4f46e5}}"
+    "*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;"
+    "justify-content:center;padding:24px;background:var(--bg);color:var(--ink);font-size:14px;"
+    "line-height:1.55;-webkit-font-smoothing:antialiased;"
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}"
+    ".box{width:100%;max-width:440px;background:var(--card);border:1px solid var(--bd);"
+    "border-radius:16px;padding:28px}"
+    ".mark{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-weight:700;"
+    "letter-spacing:-.01em}"
+    "h1{font-size:18px;margin:0 0 10px;letter-spacing:-.01em}"
+    "p{color:var(--dim);font-size:13px;margin:0 0 14px}"
+    ".dim{color:var(--dim);font-size:12px}"
+    "a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}"
+    "input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--bd);"
+    "background:var(--bg);color:inherit;font-size:14px;margin:0 0 12px}"
+    ".btn{display:block;width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;"
+    "background:transparent;color:var(--ink);font-weight:650;font-size:14px;cursor:pointer;"
+    "text-align:center;margin-bottom:10px;text-decoration:none}"
+    ".btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}"
+    ".btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}"
+    ".btn.primary:hover{filter:brightness(1.06);color:#fff}"
+    ".sep{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:11px;"
+    "text-transform:uppercase;letter-spacing:.06em;margin:18px 0 14px}"
+    ".sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--bd)}"
+    "</style>"
+)
+
+_NOTICE_PAGE = (
+    "<!doctype html><meta charset=utf-8><title>__TITLE__ — AgentForge</title>"
+    "<meta name=viewport content='width=device-width,initial-scale=1'>"
+    + _MINI_CSS +
+    "<div class=box><div class=mark>" + _LOGO + "AgentForge</div>"
+    "<h1>__TITLE__</h1><p>__BODY__</p>__ACTIONS__</div>"
+)
+
+# One sign-in page, both routes. OpenEMR is presented first as the primary path; the operator
+# token sits beneath it as the documented fallback for exactly the situation the platform is in —
+# the identity provider not yet working. Two competing buttons in the header made the dashboard
+# look broken, so the choice lives here instead.
 _BREAK_GLASS_PAGE = (
-    "<!doctype html><meta charset=utf-8><title>Break-glass operator login — AgentForge</title>"
+    "<!doctype html><meta charset=utf-8><title>Sign in — AgentForge</title>"
     "<meta name=viewport content='width=device-width,initial-scale=1'>"
     "<meta name=robots content='noindex,nofollow'>"
-    "<style>:root{color-scheme:light dark}body{max-width:420px;margin:14vh auto;padding:0 20px;"
-    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;"
-    "line-height:1.55;background:#0b1220;color:#e6edf6}"
-    "h1{font-size:19px;margin:0 0 6px}p{color:#9fb1c7;font-size:13px}"
-    "input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #1e2b3d;"
-    "background:#0f1826;color:inherit;font-size:14px;margin:14px 0}"
-    "button{width:100%;padding:10px;border:0;border-radius:9px;background:#4f46e5;color:#fff;"
-    "font-weight:650;font-size:14px;cursor:pointer}a{color:#818cf8}"
-    "@media(prefers-color-scheme:light){body{background:#fff;color:#0f172a}"
-    "input{background:#fff;border-color:#e5eaf0}p{color:#475569}}</style>"
-    "<h1>Break-glass operator login</h1>"
-    "<p>Primary sign-in is <a href='/login'>Log in with OpenEMR</a>. Use this shared operator token "
-    "only when the identity provider is unavailable.</p>"
+    + _MINI_CSS +
+    "<div class=box><div class=mark>" + _LOGO + "AgentForge</div>"
+    "<h1>Sign in</h1>"
+    "<p>Exploit reproduction is restricted to security operators.</p>"
+    "__SSO__"
     "<form method=post action='/login/token' autocomplete=off>"
     "<input type=hidden name=return_to value='__RETURN__'>"
     "<input type=password name=token placeholder='Operator token' aria-label='Operator token' "
     "autofocus required>"
-    "<button type=submit>Sign in</button></form>"
-    "<p style='margin-top:18px'><a href='/'>← back to dashboard</a></p>"
+    "<button class='btn primary' type=submit>Sign in with token</button></form>"
+    "<p class=dim style='margin:14px 0 0'>Every use of the operator token — granted or denied — is "
+    "recorded in the platform's append-only audit ledger.</p>"
+    "<p style='margin-top:16px'><a href='/'>← back to dashboard</a></p></div>"
+)
+
+_SSO_BLOCK = (
+    "<a class='btn primary' href='/login'>Log in with OpenEMR</a>"
+    "<p class=dim style='margin:-2px 0 0'>The primary sign-in route.</p>"
+    "<div class=sep>or use an operator token</div>"
 )
 
 
@@ -807,7 +947,7 @@ td.why{white-space:normal;color:var(--ink-2);font-size:12px;min-width:260px;line
 .lk-pills .pill{padding-right:4px}
 .lk-n{font-variant-numeric:tabular-nums;font-weight:750;font-size:13px;color:var(--ink-2);
  margin:0 8px 0 -4px}
-.lk-cta{margin-top:16px}
+.lk-link{font-weight:600}
 
 /* confusion matrix */
 .selftest-grid{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
