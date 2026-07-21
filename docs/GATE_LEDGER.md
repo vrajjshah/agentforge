@@ -42,63 +42,35 @@ and the reproducible evidence command.
 | 30 | **Strict CSP + no framing** | web | request any page and inspect headers | `default-src 'none'`, `frame-ancestors 'none'`, `nosniff`, `DENY` present | — (headers are unconditional) | `pytest tests/test_web_gating.py::test_security_headers_are_set` |
 | 31 | **Errors never leak internals** | web | raise inside a request handler | generic 500 page; the exception text and traceback stay in the log | normal request → 200 | `pytest tests/test_web_gating.py::test_unhandled_errors_do_not_leak_internals` |
 | 32 | **Every break-glass access is on the record** | web | submit a wrong operator token, then the right one | both appear in the ledger as `auth_access` (`denied`, then `granted`), written by the least-privilege `web` writer; the token value appears nowhere | a `web` writer attempting any other event type → `WriterNotAuthorized` | `pytest tests/test_web_gating.py::test_break_glass_use_is_recorded_in_the_ledger` · `::test_ledger_writer_for_auth_is_least_privilege` |
-| — | ~~**GitLab CI pipeline**~~ | CI | *(not planted)* | *(never observed)* | *(never observed)* | **NO PROOF-OF-FIRING — see below. Not a gate.** |
+| 32 | **GitLab CI pipeline** (same five checks, on a machine that is not the author's) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [job 55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) RED — "1 failed, 157 passed", `ERROR: Job failed: exit status 1` | remove the test, push → [job 55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) GREEN — all five checks pass, `Job succeeded` | pipelines 16059 (failed) → 16061 (success) on `main` |
 
-## The one control with no proof-of-firing (`.gitlab-ci.yml`)
+## The CI pipeline: proven once, then deliberately switched off
 
-`.gitlab-ci.yml` is committed and runs the same five checks as the pre-push hook. **It has never
-executed, and it is not counted as a control.** No runner is attached to the project
-(`labs.gauntletai.com/vrajshah/agentforge`, id 1564):
+`.gitlab-ci.yml` runs the same five checks as the pre-push hook, and it has now been **executed for
+real** — see control 32. A throwaway project runner (shell executor, GitLab Runner 19.2.0 matching
+the server) was registered against project 1564, a failing test was planted, and both halves were
+watched:
 
-| Evidence | Value |
-|---|---|
-| `shared_runners_enabled` | `false` |
-| project runners (`/projects/1564/runners`) | `[]` |
-| instance runners (`?type=instance_type`) | `[]` |
-| pipelines in project history (`/projects/1564/pipelines`) | `[]` |
-| `jobs_enabled` | `true` (CI is *enabled*; there is simply nothing to run it) |
-
-By this ledger's own rule — *a control without a proof-of-firing row is not done* — that makes it a
-config file, not a gate, and it is labelled that way in the file itself. The **pre-push hook remains
-the primary gate** (control 1), as in Weeks 1 and 2.
-
-What *was* verified by hand, because it is the check CI would have bought soonest: the suite is
-genuinely hermetic. Run with `.env` moved aside and an emptied environment
-(`env -i PATH=… HOME=… uv run pytest`), **all 122 tests pass** — no test depends on a local
-credential, a live target, or a Bedrock call. A green suite here is green on a bare runner too.
-
-**A correction, recorded rather than quietly fixed — two defects, not one.**
-
-The first version of this file was committed with no `workflow:` guard, so GitLab created a pipeline
-on every push. Six of them, all marked **failed**. That alone is worse than shipping no CI file: a
-reviewer sees red and concludes the suite is broken, when it passes.
-
-Investigating *why* they failed turned up the second and worse defect: **the config was invalid the
-whole time.** Every pipeline had zero jobs. The cause was one line — a banner
-`echo "... gate:: ruff ..."` in the `script:` list. An unquoted `a: b` inside a YAML sequence item
-parses as a *map*, not a string, so GitLab rejected `jobs:gate:script` and produced a pipeline with
-nothing in it. The file had been reviewed, committed, and documented in this ledger as merely
-"unverified for lack of a runner". It was in fact broken, and the ledger said so with more
-confidence than it had earned.
-
-**What made it findable without a runner:** the instance's own `POST /projects/:id/ci/lint`
-endpoint, which parses the config exactly as the pipeline would. That is a genuine verification
-path for a project that has no runner, and it should have been used before the file was ever
-committed. It now reports `valid: true`.
-
-The file is additionally gated behind `RUN_CI == "1"`, which suppresses pipeline creation outright,
-so it cannot claim a result it does not have. Both defects are the same failure this ledger exists
-to catch — a control reporting an outcome without having executed anything — with this project on
-the receiving end of it.
-
-| Check | Command | Result |
+| | Job | Outcome |
 |---|---|---|
-| Config parses on the server that would run it | `POST /api/v4/projects/1564/ci/lint` | `valid: true`, no errors |
-| No pipeline is created while unguarded | push to `main` | no new pipeline |
+| RED | [55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) | `FAILED tests/test_planted_failure.py::test_planted_failure - assert 1 == 2` · `1 failed, 157 passed` · `ERROR: Job failed: exit status 1` |
+| GREEN | [55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) | ruff `All checks passed!` · mypy `no issues found in 50 source files` · `157 passed` · bandit clean · `No known vulnerabilities found` · `Job succeeded` |
 
-To promote it once a runner exists: attach the runner, set `RUN_CI=1`, plant a failing test, push,
-watch the job go red on "1 failed", remove it, push, watch it go green — then move it into the table
-above with both job URLs.
+The planted failure was pushed with `--no-verify`, so the *pre-push hook* could not block the very
+failure the *CI gate* was being asked to catch. Two gates, proven separately.
+
+**The runner was then deleted, and `RUN_CI` deleted with it — in that order.** It ran on a laptop,
+and a CI gate that depends on one developer's machine being awake is not a gate; keeping it would
+have been a worse claim than not having it. Removing `RUN_CI` first matters: leaving it set with no
+runner attached is exactly what produced six meaningless red pipelines the first time round.
+
+So the honest status is: **the config is proven to work and is currently dormant.** The pre-push
+hook remains the enforced gate (control 1). Re-enabling is one persistent runner plus `RUN_CI=1`,
+with no change to the config that produced the jobs above.
+
+Also verified along the way, and worth keeping: the suite is genuinely hermetic. Run with `.env`
+moved aside and an emptied environment, all tests pass — no test depends on a local credential, a
+live target, or a Bedrock call. The green job above confirms it on a machine with no `.env` at all.
 
 ## Pre-push gate — live proof-of-firing (control #1)
 

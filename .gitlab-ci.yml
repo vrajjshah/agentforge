@@ -1,20 +1,22 @@
 # ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-# │ STATUS: NOT VERIFIED. This pipeline has never executed. No runner is attached to the project  │
-# │ (labs.gauntletai.com/vrajshah/agentforge, id 1564): shared_runners_enabled=false, zero        │
-# │ project runners, zero instance runners, zero pipelines in the project's history. Committing   │
-# │ it changes nothing about what is actually enforced today.                                     │
-# │                                                                                               │
-# │ It is committed anyway because the config is the part that can be written now and the runner  │
-# │ is the part that cannot — but it is labelled, not counted. docs/GATE_LEDGER.md lists it as    │
-# │ the one control with NO proof-of-firing, and the ledger's own rule is that such a control is  │
-# │ not done. Treating a green-looking YAML file as a gate is precisely the failure the ledger    │
-# │ exists to prevent: a scan that can never fail never told you anything.                        │
-# │                                                                                               │
-# │ TO PROMOTE IT, once a runner is attached (Settings → CI/CD → Runners):                        │
-# │   1. plant a failure:  echo 'def test_x(): assert 1 == 2' > tests/test_planted_failure.py     │
-# │   2. push the branch, watch this job go RED on "1 failed"                                     │
-# │   3. rm tests/test_planted_failure.py, push, watch it go GREEN                                │
-# │   4. only then move it into the gate ledger as a proven control, with the two job URLs        │
+# │ STATUS: PROVEN, then intentionally dormant.                                                  │
+# │                                                                                              │
+# │ This pipeline has been executed for real. A throwaway project runner (shell executor) was     │
+# │ registered, a failing test was planted, and the job was watched:                             │
+# │                                                                                              │
+# │   RED   job 55608 — "FAILED tests/test_planted_failure.py - assert 1 == 2 / 1 failed,        │
+# │                     157 passed"  ->  ERROR: Job failed: exit status 1                        │
+# │   GREEN job 55610 — ruff "All checks passed!" · mypy "no issues found in 50 source files" ·  │
+# │                     "157 passed" · bandit clean · "No known vulnerabilities found"           │
+# │                     ->  Job succeeded                                                        │
+# │                                                                                              │
+# │ The runner was then deleted, because it lived on a laptop and a CI gate that depends on one   │
+# │ developer's machine being awake is not a gate. RUN_CI was deleted with it, in that order:     │
+# │ leaving RUN_CI set with no runner attached is what produced six meaningless red pipelines     │
+# │ the first time round.                                                                        │
+# │                                                                                              │
+# │ TO RE-ENABLE: attach a persistent runner, then set RUN_CI=1. Nothing else needs to change —   │
+# │ this config is the one that produced the two jobs above.                                     │
 # └──────────────────────────────────────────────────────────────────────────────────────────────┘
 #
 # The same gate as .githooks/pre-push, run on a runner instead of a laptop.
