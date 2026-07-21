@@ -112,6 +112,33 @@ The most recently added routes and UI carry the least battle-testing, so they ge
 - **On-demand upstream reconciliation** (`GET /week2/patients/{id}/reconciliation`) forces a live
   EMR read per request — an amplification / cost pivot.
 
+### Recommendation (not a finding): machine-key write authority
+
+`require_access` admits the API key for **chart writes**, not just reads. The threat model above
+records the key's cross-patient capability as **intended**, so an authorized 200 on
+`/week2/confirm/{id}` is the system working — the platform does **not** report it as an exploit, and
+the check-pack deliberately refuses to forbid 200 for an authenticated principal (a policy that
+flagged every healthy write would not be stricter, it would make every verdict worthless).
+
+What is worth raising, at **informational** severity and as a design recommendation rather than a
+confirmed vulnerability, is whether a *machine* principal should hold unbounded write authority over
+the chart at all, or whether writes should require a patient-bound SMART session while the key stays
+read-scoped. That is an authorization-design question about `require_access`, not a state-corruption
+defect, and it would need to be verified against live behaviour before it is written up either way.
+It is recorded here so the distinction is explicit: an intended capability someone might want
+narrowed is not the same claim as an exploit.
+
+### Stated boundary — what the HTTP surface cannot decide
+
+A **cross-scope write by an authorized key holder** (a valid key writing to a patient outside the
+caller's remit) is not distinguishable from a legitimate write in an HTTP status code, and a
+PHI-marker check on a write response would false-positive on a legitimate echo of the caller's own
+patient record. The platform therefore does not claim to detect it, and the authenticated
+state-corruption checks assert only the property they can prove: **at most one successful write per
+record** across a raced, retried, or repeated sequence. Catching cross-scope writes needs a
+patient-scope oracle from the target (which record was actually touched), not a response body —
+the same shape of limit as the iframe→host DOM escape needing a `BrowserTargetAdapter`.
+
 ### Known operational weak points
 
 Single-worker deployment (~0.56 turns/s) → trivial DoS/cost target; three per-process guards (rate

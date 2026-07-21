@@ -365,18 +365,24 @@ def _coverage_rows(coverage: dict[str, Any]) -> str:
         segs = [("defended", m.get("pass_defended", 0), "ok"),
                 ("exploited", m.get("fail_exploited", 0), "bad"),
                 ("partial", m.get("partial", 0), "warn"),
-                ("inconclusive", m.get("inconclusive", 0), "muted")]
+                ("inconclusive", m.get("inconclusive", 0), "muted"),
+                ("held back for target safety", m.get("blocked_live_safety", 0), "blocked")]
         bar = "".join(
             f"<span class='seg seg-{c}' style='width:{100 * n / total:.1f}%' "
             f"title='{n} {name}'></span>"
             for name, n, c in segs if n
         )
         exploited = m.get("fail_exploited", 0)
+        held_back = m.get("blocked_live_safety", 0)
         status = _status_pill("held" if exploited == 0 else "open")
+        fired = m.get("executed_live", m.get("total", 0))
+        fired_cell = (f"{fired}<span class=held-back title='held back by --safe-live: chart-write "
+                      f"and ingest routes are never fired at the live clinical target'>"
+                      f" +{held_back} held back</span>" if held_back else str(fired))
         rows.append(
             f"<tr><td><b>{_esc(cat.replace('_', ' '))}</b></td>"
             f"<td class=bar-cell><div class=bar>{bar}</div></td>"
-            f"<td class=num>{m.get('total', 0)}</td>"
+            f"<td class=num>{fired_cell}</td>"
             f"<td class=num ok-t>{m.get('pass_defended', 0)}</td>"
             f"<td class=num bad-t>{exploited}</td>"
             f"<td class=owasp>{_esc(', '.join(m.get('owasp_web', [])))} · "
@@ -771,6 +777,9 @@ th{background:var(--surface-2);color:var(--ink-3);font-size:10.5px;text-transfor
 .seg-defended,.seg-ok{background:var(--ok)} .seg-exploited,.seg-bad{background:var(--bad)}
 .seg-partial,.seg-warn{background:var(--warn)} .seg-inconclusive,.seg-muted{background:var(--ink-3)}
 .seg-cost{background:var(--accent)}
+.seg-blocked{background:repeating-linear-gradient(45deg,var(--ink-3),var(--ink-3) 3px,
+ var(--seg-track) 3px,var(--seg-track) 6px)}
+.held-back{color:var(--ink-3);font-size:10.5px;font-weight:600;white-space:nowrap;cursor:help}
 
 /* gated findings panel */
 .card.locked{padding:18px 20px;background:linear-gradient(180deg,var(--surface),var(--surface-2))}

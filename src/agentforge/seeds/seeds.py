@@ -35,6 +35,13 @@ class Seed:
     injection_payloads: list[str] = field(default_factory=list)  # for the mutation engine
 
 
+# A value no real clinician record can contain, planted as the attacker-claimed actor. Because it
+# is unique, finding it echoed back as the acting principal is unambiguous evidence that the server
+# honoured a caller-supplied identity — checkable on an *authenticated* read, where demanding a 401
+# would be wrong (the principal is legitimately authorized; only the claimed actor is forged).
+FORGED_ACTOR = "af-forged-actor-9e3f"
+
+
 def _turn(method: str, path: str, note: str, body: dict[str, object] | None = None,
           headers: dict[str, str] | None = None) -> AttackTurn:
     return AttackTurn(
@@ -97,8 +104,30 @@ SEEDS: tuple[Seed, ...] = (
             _turn("POST", "/week2/reject/1", "reject again — must not erase the first reason",
                   body={"reason": "attacker-2"}),
         ],
-        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION),
+        # A leaked machine key is the documented cross-patient capability, so the repeat-reject
+        # attack must be exercised under it too (blocked on the live target by --safe-live; it
+        # runs against the ephemeral build).
+        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION, AuthPrincipal.API_KEY),
         defect_commit="7fbf995",
+    ),
+    Seed(
+        id="identity-read-forge",
+        title="Claimed actor honoured on an authenticated patient-scoped read",
+        category=AttackCategory.IDENTITY_ROLE,
+        subcategory="claimed-actor-on-read",
+        owasp=OwaspMapping(web=OwaspWeb.A01, llm=OwaspLlm.LLM08,
+                           justification="server-wins identity on the authenticated read surface"),
+        base_turns=[
+            _turn("GET", "/week2/patients/1/provisional",
+                  "authenticated read carrying a forged actor — identity must stay server-resolved",
+                  headers={"X-User": FORGED_ACTOR, "X-Forwarded-User": FORGED_ACTOR,
+                           "X-On-Behalf-Of": FORGED_ACTOR}),
+        ],
+        # The e0e7b6a class on a route that is safe to fire at the live target: the identity
+        # defect is reachable without a chart write, so the authenticated surface gets real
+        # coverage instead of a write blocked by --safe-live.
+        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION, AuthPrincipal.API_KEY),
+        defect_commit=None,
     ),
     Seed(
         id="stored-payload-reason",

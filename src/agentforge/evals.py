@@ -124,12 +124,18 @@ def summarize(results_by_cat: dict[AttackCategory, list[EvalResult]],
     matrix: dict[str, Any] = {}
     for cat, results in results_by_cat.items():
         labels = [r.verdict.label for r in results]
+        # Variants held back by --safe-live were never fired at the target. Counting them as
+        # "inconclusive" would let a category read as covered when it was not, so they are broken
+        # out: a coverage number nobody can audit is worse than a smaller honest one.
+        blocked = sum(r.verdict.rule_fired == "blocked-live-safety" for r in results)
         matrix[cat.value] = {
             "total": len(results),
             "pass_defended": sum(x == VerdictLabel.DEFENDED for x in labels),
             "fail_exploited": sum(x == VerdictLabel.EXPLOITED for x in labels),
             "partial": sum(x == VerdictLabel.PARTIAL for x in labels),
-            "inconclusive": sum(x == VerdictLabel.INCONCLUSIVE for x in labels),
+            "inconclusive": sum(x == VerdictLabel.INCONCLUSIVE for x in labels) - blocked,
+            "blocked_live_safety": blocked,
+            "executed_live": len(results) - blocked,
             "owasp_web": sorted({r.attempt.owasp.web.value for r in results}),
             "owasp_llm": sorted({r.attempt.owasp.llm.value for r in results}),
         }

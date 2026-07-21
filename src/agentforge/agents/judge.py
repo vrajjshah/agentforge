@@ -60,7 +60,12 @@ class Judge:
         responses = attempt.observed
 
         if responses and all(r.error for r in responses):
-            return self._verdict(attempt, VerdictLabel.INCONCLUSIVE, "transport-error",
+            # A variant held back by live-target safety is not the same claim as one that failed to
+            # land: it was never fired. Both are inconclusive, but only one is a coverage gap the
+            # reader should see, so it gets its own rule rather than hiding inside "transport".
+            blocked = all("blocked_by_grant" in (r.error or "") for r in responses)
+            return self._verdict(attempt, VerdictLabel.INCONCLUSIVE,
+                                 "blocked-live-safety" if blocked else "transport-error",
                                  [r.error or "" for r in responses], confidence=0.5)
 
         det_label, rule, evidence = _deterministic_ladder(policy, responses)

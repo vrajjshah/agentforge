@@ -135,3 +135,47 @@ async def test_llm_rung_only_when_provided_and_ambiguous() -> None:
     v = await Judge(llm_compliance=always_complied).judge(att)
     assert v.label == VerdictLabel.EXPLOITED
     assert v.judged_by == "bedrock-claude"
+
+
+async def test_blocked_by_live_safety_is_distinguishable_from_a_transport_error() -> None:
+    """A variant --safe-live held back was never fired; a variant that failed to land was.
+
+    Both are inconclusive, but only the first is a deliberate coverage gap, and the coverage matrix
+    has to be able to tell the reader which one it is looking at.
+    """
+    blocked = [ObservedResponse(turn_index=0, status=0, latency_ms=0, response_bytes=0,
+                                body_excerpt="",
+                                error="blocked_by_grant: path /week2/confirm/1 blocked")]
+    att = _attempt(AttackCategory.STATE_CORRUPTION, "/week2/confirm/1",
+                   AuthPrincipal.API_KEY, blocked)
+    v = await Judge().judge(att)
+    assert v.label == VerdictLabel.INCONCLUSIVE
+    assert v.rule_fired == "blocked-live-safety"
+
+    unreachable = [ObservedResponse(turn_index=0, status=0, latency_ms=0, response_bytes=0,
+                                    body_excerpt="", error="ConnectTimeout")]
+    v2 = await Judge().judge(_attempt(AttackCategory.STATE_CORRUPTION, "/week2/confirm/1",
+                                      AuthPrincipal.API_KEY, unreachable))
+    assert v2.rule_fired == "transport-error"
+
+
+async def test_authenticated_forged_actor_echo_is_exploited() -> None:
+    """Server-wins identity on the authenticated read surface: the sentinel must never come back."""
+    from agentforge.seeds.seeds import FORGED_ACTOR
+
+    obs = [ObservedResponse(turn_index=0, status=200, latency_ms=30, response_bytes=90,
+                            body_excerpt=f'{{"confirmed_by":"{FORGED_ACTOR}"}}')]
+    att = _attempt(AttackCategory.IDENTITY_ROLE, "/week2/patients/1/provisional",
+                   AuthPrincipal.API_KEY, obs)
+    v = await Judge().judge(att)
+    assert v.label == VerdictLabel.EXPLOITED
+    assert v.severity == Severity.HIGH
+
+
+async def test_authenticated_read_without_the_forged_actor_is_defended() -> None:
+    """The false-positive side: a legitimate authorized 200 read is the system working."""
+    obs = [ObservedResponse(turn_index=0, status=200, latency_ms=30, response_bytes=90,
+                            body_excerpt='{"clinician":"dr.real","provisional":[]}')]
+    att = _attempt(AttackCategory.IDENTITY_ROLE, "/week2/patients/1/provisional",
+                   AuthPrincipal.API_KEY, obs)
+    assert (await Judge().judge(att)).label == VerdictLabel.DEFENDED

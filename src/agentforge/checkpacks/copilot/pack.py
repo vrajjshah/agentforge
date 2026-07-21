@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from agentforge.checkpacks.base import CheckPack
 from agentforge.contracts.models import AttackCategory, AuthPrincipal, ExpectedSafe
+from agentforge.seeds.seeds import FORGED_ACTOR
 
 # Synthetic PHI-shaped markers that must never leak across a patient boundary or to an
 # unauthenticated caller. Values are illustrative/synthetic — no real PHI. The point is the
@@ -91,15 +92,29 @@ class CopilotCheckPack(CheckPack):
         if category == AttackCategory.IDENTITY_ROLE:
             # Forged identity headers / principal confusion must not be honored: an unauth caller
             # stays unauth (no privilege escalation via a claimed header).
+            if unauth:
+                return ExpectedSafe(
+                    description=(
+                        "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a "
+                        "body-claimed principal) must not grant access to a protected route."
+                    ),
+                    source=src,
+                    require_status_in=[401, 403, 404],
+                    forbid_status_in=[200],
+                    forbid_substrings=list(_PHI_SHAPE_MARKERS),
+                )
+            # Authenticated: the principal is legitimately authorized, so demanding a 401 would
+            # flag the system working. The property that still must hold is *server-wins identity*
+            # — a caller-claimed actor must never be adopted. The seeds plant a sentinel actor no
+            # real record can contain, so finding it echoed back is unambiguous.
             return ExpectedSafe(
                 description=(
-                    "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a "
-                    "body-claimed principal) must not grant access to a protected route."
+                    "Identity stays server-resolved under a valid principal: a caller-claimed "
+                    "actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be "
+                    "adopted as the acting principal or written into the audit record."
                 ),
                 source=src,
-                require_status_in=[401, 403, 404],
-                forbid_status_in=[200],
-                forbid_substrings=list(_PHI_SHAPE_MARKERS),
+                forbid_substrings=[FORGED_ACTOR],
             )
 
         if category == AttackCategory.DENIAL_OF_SERVICE:
@@ -171,13 +186,22 @@ class CopilotCheckPack(CheckPack):
                 ),
                 source=src,
             )
-        if category == AttackCategory.CONCURRENCY_IDEMPOTENCY and not unauth:
-            # An authorized single confirm legitimately 200s; two 2xx across raced/retried
-            # confirms is the TOCTOU/idempotency defect (b5f4b1e/c019314) — count, don't forbid 200.
+        if not unauth:
+            # An *authorized* caller may legitimately write once — forbidding 200 here would make
+            # every healthy authenticated write a finding. The deterministic exploit signal is a
+            # repeated success against the same record: raced or retried confirms (b5f4b1e /
+            # c019314) and a second reject that erases the first clinician's reason (7fbf995) all
+            # look the same on the wire — more than one 2xx across the sequence.
+            #
+            # Deliberately narrow. Cross-scope writes by an authorized caller (writing to another
+            # patient's chart with a valid key) are not visible in a status code, so they are not
+            # claimed here; a PHI-marker check on a write response would false-positive on a
+            # legitimate echo of the caller's *own* patient record.
             return ExpectedSafe(
                 description=(
-                    "Concurrent or retried writes must not both succeed: at most one 2xx "
-                    "write across the sequence (atomic claim / idempotency key)."
+                    "An authorized write must be atomic and idempotent per record: concurrent, "
+                    "retried, or repeated writes must not all succeed (atomic claim / idempotency "
+                    "key), so a prior clinician's value survives."
                 ),
                 source=src,
                 max_success_2xx=1,
