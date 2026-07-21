@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-07-21T08:44:21.786324+00:00",
+  "confusion": {
+    "tp": 3,
+    "tn": 3,
+    "fp": 0,
+    "fn": 0
+  },
+  "precision": 1.0,
+  "recall": 1.0,
+  "accuracy": 1.0,
+  "cases": [
+    {
+      "seed": "ea8fa01",
+      "build": "vulnerable",
+      "predicted": "exploited",
+      "actual": "exploited",
+      "correct": true,
+      "mutation_families": 4
+    },
+    {
+      "seed": "ea8fa01",
+      "build": "fixed",
+      "predicted": "defended",
+      "actual": "defended",
+      "correct": true,
+      "mutation_families": 4
+    },
+    {
+      "seed": "e0e7b6a",
+      "build": "vulnerable",
+      "predicted": "exploited",
+      "actual": "exploited",
+      "correct": true,
+      "mutation_families": 4
+    },
+    {
+      "seed": "e0e7b6a",
+      "build": "fixed",
+      "predicted": "defended",
+      "actual": "defended",
+      "correct": true,
+      "mutation_families": 4
+    },
+    {
+      "seed": "b5f4b1e",
+      "build": "vulnerable",
+      "predicted": "exploited",
+      "actual": "exploited",
+      "correct": true,
+      "mutation_families": 4
+    },
+    {
+      "seed": "b5f4b1e",
+      "build": "fixed",
+      "predicted": "defended",
+      "actual": "defended",
+      "correct": true,
+      "mutation_families": 4
+    }
+  ]
+}

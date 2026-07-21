@@ -171,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("demo", help="run the killer demo (ephemeral vulnerable build; no network/cost)")
     sub.add_parser("reports", help="generate the >=3 vuln reports (ephemeral build; no cost)")
     sub.add_parser("dashboard", help="rebuild evals/dashboard.json for the observability dashboard")
+    sub.add_parser("cost", help="regenerate docs/COST_ANALYSIS.md (scaling model)")
+    sub.add_parser("inner-loop", help="testing-the-tester eval (precision/recall vs ground truth)")
 
     run = sub.add_parser("run", help="run one campaign through the multi-agent graph")
     run.add_argument("--category", required=True, choices=[c.value for c in AttackCategory])
@@ -215,6 +217,21 @@ def main(argv: list[str] | None = None) -> int:
         from agentforge.dashboard import write_dashboard
 
         print(f"wrote {asyncio.run(write_dashboard()).relative_to(_REPO_ROOT)}")
+        return 0
+    if args.cmd == "cost":
+        from agentforge.cost_model import render_cost_analysis
+
+        out = _REPO_ROOT / "docs" / "COST_ANALYSIS.md"
+        out.write_text(render_cost_analysis())
+        print(f"wrote {out.relative_to(_REPO_ROOT)}")
+        return 0
+    if args.cmd == "inner-loop":
+        from agentforge.inner_loop import write_inner_loop
+
+        path = asyncio.run(write_inner_loop(_REPO_ROOT / "evals" / "inner_loop.json"))
+        data = json.loads(path.read_text())
+        print(json.dumps({"confusion": data["confusion"], "precision": data["precision"],
+                          "recall": data["recall"], "accuracy": data["accuracy"]}, indent=2))
         return 0
     if args.cmd == "run":
         return asyncio.run(_cmd_run(settings, args))

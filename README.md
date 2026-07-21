@@ -92,6 +92,24 @@ report, and the **regression harness goes red on the vulnerable build and green 
 asserting the security property (another patient's date of birth is absent), not a status code. This
 is the spine of the demo video.
 
+## Observability & analysis
+
+```bash
+uv run agentforge dashboard   # rebuild the dashboard data (coverage, findings, cost, activity)
+uv run agentforge inner-loop  # testing-the-tester: precision/recall/accuracy vs known ground truth
+uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model, not cost x n)
+```
+
+- **Dashboard** — the six observability questions on one self-contained page (above).
+- **Langfuse tracing** — each campaign is a trace with a nested span per agent hop; PHI-shaped
+  values are masked before sending. Optional (no-op without keys). Cloud is used here for synthetic
+  data; real PHI would self-host Langfuse under the same BAA (see [ARCHITECTURE.md](ARCHITECTURE.md)).
+- **Inner-loop eval** — scores the platform's *own* verdicts against ground truth
+  (vulnerable vs fixed builds): currently precision 1.0 / recall 1.0 / accuracy 1.0 on the seeded
+  defects, so a "defense held" result is trustworthy, not an artifact of a lazy judge.
+- **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
+  architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
+
 ## Architecture
 
 Four agents coordinate through versioned JSON-Schema messages, orchestrated by a LangGraph state

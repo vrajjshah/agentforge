@@ -147,8 +147,25 @@ async def build_dashboard_data() -> dict[str, Any]:
             "open_on_live_target": live_exploited,
         },
         "cost": cost,
+        "self_test": await _self_test(),
+        "cost_projection": _cost_projection(),
         "agent_activity": await _agent_activity(),
     }
+
+
+async def _self_test() -> dict[str, Any]:
+    """Inner-loop 'testing the tester' metrics against known ground truth."""
+    from agentforge.inner_loop import run_inner_loop
+
+    r = await run_inner_loop()
+    return {"confusion": {"tp": r.tp, "tn": r.tn, "fp": r.fp, "fn": r.fn},
+            "precision": r.precision, "recall": r.recall, "accuracy": r.accuracy}
+
+
+def _cost_projection() -> list[dict[str, Any]]:
+    from agentforge.cost_model import project
+
+    return [{"n": t.n_attacks, "dollars": t.dollars, "wall": t.wall_human} for t in project()]
 
 
 async def write_dashboard(out: Path = _EVALS / "dashboard.json") -> Path:

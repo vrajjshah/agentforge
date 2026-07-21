@@ -13,6 +13,7 @@ dependencies = [
     "anthropic[bedrock]>=0.40",
     "jsonschema>=4.23",
     "python-dotenv>=1.0",
+    "langfuse>=3.0,<4",
 ]
 
 [project.scripts]

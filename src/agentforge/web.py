@@ -209,6 +209,20 @@ def _render(d: dict[str, Any]) -> str:
         _stat("Live inference cost", f"${cost.get('live_inference_usd', 0)}",
               f"{cost.get('model_turns', 0)} model turns @ ${cost.get('per_turn_usd', 0)}"),
     ]))
+    st = d.get("self_test", {})
+    conf = st.get("confusion", {})
+    body = body.replace("__SELFTEST__", "".join([
+        _stat("Precision", f"{st.get('precision', '—')}", "no false alarms on fixed builds"),
+        _stat("Recall", f"{st.get('recall', '—')}", "known vulns caught on vulnerable builds"),
+        _stat("Accuracy", f"{st.get('accuracy', '—')}",
+              f"TP {conf.get('tp', 0)} · TN {conf.get('tn', 0)} · "
+              f"FP {conf.get('fp', 0)} · FN {conf.get('fn', 0)}"),
+    ]))
+    body = body.replace("__COSTPROJ__", "".join(
+        f"<tr><td class=num>{r.get('n'):,}</td><td class=num>${r.get('dollars'):,.2f}</td>"
+        f"<td class=num muted>{_esc(r.get('wall'))}</td></tr>"
+        for r in d.get("cost_projection", [])
+    ) or "<tr><td colspan=3 class=muted>—</td></tr>")
     body = body.replace("__COVERAGE__", _coverage_rows(d.get("coverage", {})))
     body = body.replace("__FINDINGS__", _findings_rows(d.get("findings", [])))
     body = body.replace("__RESILIENCE__", resilience or "<tr><td colspan=4 class=muted>—</td></tr>")
@@ -330,6 +344,21 @@ ul.timeline li:last-child{border-bottom:none}
 <div class=scroll><table><thead><tr>
  <th>Target fingerprint</th><th>Run</th><th class=num>Cases</th><th class=num>Pass rate</th>
  </tr></thead><tbody>__RESILIENCE__</tbody></table></div>
+
+<h2>Platform self-test (testing the tester)</h2>
+<div class=stats>__SELFTEST__</div>
+<p class=meta>The platform's own verdicts scored against known ground truth: each seeded defect run
+ against a build where it is present (should be caught) and one where it is fixed (should hold).
+ Perfect scores mean no missed vulns and no false alarms — the finding productivity that makes the
+ "defense held" result above trustworthy.</p>
+
+<h2>Projected cost at scale</h2>
+<div class=scroll><table><thead><tr>
+ <th class=num>Attack runs</th><th class=num>Est. cost</th><th class=num>Wall-clock</th>
+ </tr></thead><tbody>__COSTPROJ__</tbody></table></div>
+<p class=meta>Not cost-per-token times n: deterministic generation is free, the Judge is triaged,
+ and wall-clock (not dollars) is the binding constraint — see
+ <code>docs/COST_ANALYSIS.md</code>.</p>
 
 <h2>Recent agent activity</h2>
 <ul class=timeline>__ACTIVITY__</ul>

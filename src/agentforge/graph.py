@@ -22,6 +22,7 @@ from agentforge.agents.judge import Judge
 from agentforge.agents.orchestrator import CampaignBudget, Orchestrator
 from agentforge.agents.redteam import RedTeamAgent
 from agentforge.contracts.models import AttackAttempt, Campaign, Verdict, VerdictLabel
+from agentforge.observability import Observability
 from agentforge.stores.ledger import EventLedger, EventType
 
 
@@ -44,12 +45,14 @@ class CampaignState(TypedDict, total=False):
 
 class CampaignGraph:
     def __init__(self, redteam: RedTeamAgent, judge: Judge, orchestrator: Orchestrator,
-                 documentation: DocumentationAgent, ledger: EventLedger) -> None:
+                 documentation: DocumentationAgent, ledger: EventLedger,
+                 obs: Observability | None = None) -> None:
         self._rt = redteam
         self._judge = judge
         self._orch = orchestrator
         self._doc = documentation
         self._ledger = ledger
+        self._obs = obs or Observability()
         self._graph = self._build()
 
     def _build(self) -> Any:
@@ -76,10 +79,15 @@ class CampaignGraph:
             "queue": [], "cursor": 0, "executed": [], "verdicts": [], "budget": budget,
             "reports": [], "done": False,
         }
-        # recursion_limit bounds the loop (Aaron's circuit breaker as a hard graph limit).
-        result: CampaignState = await self._graph.ainvoke(
-            state, config={"recursion_limit": campaign.max_attempts * 3 + 10}
-        )
+        # recursion_limit bounds the loop (the circuit breaker as a hard graph limit).
+        with self._obs.span("campaign", input={"category": campaign.category.value,
+                                               "target_version": target_version}):
+            self._obs.update_trace(
+                name=f"campaign:{campaign.category.value}", session_id=run_id,
+                metadata={"campaign": campaign.id, "target_version": target_version})
+            result: CampaignState = await self._graph.ainvoke(
+                state, config={"recursion_limit": campaign.max_attempts * 3 + 10})
+        self._obs.flush()
         return result
 
     # --- nodes ---------------------------------------------------------------------------
@@ -109,7 +117,10 @@ class CampaignGraph:
     async def _redteam_execute(self, state: CampaignState) -> dict[str, Any]:
         campaign = state["campaign"]
         attempt = state["queue"][state["cursor"]]
-        executed = await self._rt.execute(attempt, campaign)
+        with self._obs.span("redteam", input={"mutator": attempt.mutator,
+                                              "principal": attempt.auth_principal.value}) as span:
+            executed = await self._rt.execute(attempt, campaign)
+            span.update(output={"statuses": [r.status for r in executed.observed]})
         self._ledger.append(agent="redteam", event_type=EventType.ATTEMPT_EXECUTED,
                             run_id=state["run_id"],
                             payload={"attempt": executed.id, "mutator": executed.mutator,
@@ -119,7 +130,10 @@ class CampaignGraph:
 
     async def _judge_node(self, state: CampaignState) -> dict[str, Any]:
         attempt = state["executed"][-1]
-        verdict = await self._judge.judge(attempt)
+        with self._obs.span("judge", input={"category": attempt.category.value}) as span:
+            verdict = await self._judge.judge(attempt)
+            span.update(output={"label": verdict.label.value, "severity": verdict.severity.value,
+                                "rule": verdict.rule_fired})
         state["budget"].record(attempt, verdict)
         self._ledger.append(agent="judge", event_type=EventType.VERDICT_RECORDED,
                             run_id=state["run_id"],

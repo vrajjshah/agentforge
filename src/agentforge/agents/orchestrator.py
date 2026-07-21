@@ -13,13 +13,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from agentforge.contracts.models import AttackAttempt, AttackCategory, Verdict, VerdictLabel
+from agentforge.cost_model import COST_HTTP_ONLY, COST_JUDGE_CALL, COST_TARGET_TURN
 
-# F8 honest cost model: a live turn that actually reaches the target's model pays target-side
-# Bedrock inference (~$0.071/turn baseline). A request rejected at the auth gate (401/403) never
-# reaches the model, so it costs only HTTP. A paid Judge LLM call adds its own slice.
-COST_TARGET_MODEL_TURN = 0.071
-COST_HTTP_ONLY = 0.0002
-COST_JUDGE_LLM = 0.02
+# Honest cost model (see cost_model.py): a live turn that reaches the target's model pays for
+# inference; a request rejected at the auth gate never reaches the model, so it costs only HTTP.
+COST_TARGET_MODEL_TURN = COST_TARGET_TURN
+COST_JUDGE_LLM = COST_JUDGE_CALL
 
 _MODEL_ROUTES = ("/chat", "/week2/analyze", "/week2/retrieve", "/week2/documents")
 

@@ -41,9 +41,13 @@ Bedrock inference (~$0.071/turn), so cost discipline is architectural.
 
 **Regression & observability.** Confirmed exploits become deterministic replays that assert the
 **security property** (patient B's DOB absent), never a bare 200 — a test that greens because the
-model rephrased is worse than no test. Self-hosted Langfuse plus a coverage dashboard answer the
-six required questions and feed the Orchestrator. Every gate ships with a **proof-of-firing**
-(`docs/GATE_LEDGER.md`): planted failure → block → pass.
+model rephrased is worse than no test. Observability is two layers: **Langfuse** traces each
+campaign as a trace with a nested span per agent hop (Orchestrator → Red Team → Judge →
+Documentation), and a **self-contained dashboard** answers the six required questions and links to
+the reproducible reports. A **testing-the-tester** inner-loop scores the platform's own verdicts
+against known ground truth (precision/recall/accuracy), and `docs/COST_ANALYSIS.md` models spend at
+scale. Every gate ships with a **proof-of-firing** (`docs/GATE_LEDGER.md`): planted failure → block
+→ pass.
 
 ## Agent-interaction diagram
 
@@ -156,6 +160,15 @@ security reviewer can audit rather than take on faith.
   Remaining risk — **judge drift** — is guarded below.
 - **Documentation** is template-driven (no model authors the report); a CRITICAL finding requires
   explicit human approval before it is filed.
+
+### Trace-data governance (Langfuse)
+
+Traces can carry attack payloads and, mid-exploit, leaked target data, so a PHI-shaped mask is
+applied before any value leaves the process. For this project the target's data is **synthetic**,
+so managed **Langfuse Cloud** is used. A deployment against **real PHI must instead self-host
+Langfuse inside the same BAA boundary** — sending real PHI to a third-party SaaS would break the
+single-BAA guarantee that the model roster above establishes. Tracing is also fully optional: with
+no keys configured it is a no-op, and a tracing failure can never break a run.
 
 ### Detecting and correcting a drifting Judge
 
