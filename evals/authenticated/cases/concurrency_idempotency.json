@@ -1,0 +1,653 @@
+[
+  {
+    "id": "att_f5262d36c0e74dd1",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_543e38d4bd304cff",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-1%2f..%2f2",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1%2f..%2f2",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1%2f..%2f2",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_f902cb6376c44328",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-3",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/3",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/3",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_4007004cc46d45ff",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-999",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/999",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/999",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_cdaf979b69c44b0f",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_a0a62072ea844dd0",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_036714e68c8e4c70",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Api-Key": "guessed-key",
+          "Authorization": "Bearer forged"
+        },
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Api-Key": "guessed-key",
+          "Authorization": "Bearer forged"
+        },
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_92e36da8749849b2",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-0",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/0",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/0",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_84bc190ffbfe4649",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": null,
+        "headers": {
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_a08ba83aee1f4c8f",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-../1",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/../1",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/../1",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_2480f34ac25048d8",
+    "category": "concurrency_idempotency",
+    "subcategory": "toctou-double-confirm",
+    "seed_id": "b5f4b1e",
+    "mutator": "b5f4b1e|idor-2",
+    "auth_principal": "api_key",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/2",
+        "body": null,
+        "headers": {},
+        "note": "confirm A (racing)"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/confirm/2",
+        "body": null,
+        "headers": {},
+        "note": "confirm B (racing) \u2014 must not double-write"
+      }
+    ],
+    "expected_safe": "An authorized write must be atomic and idempotent per record: concurrent, retried, or repeated writes must not all succeed (atomic claim / idempotency key), so a prior clinician's value survives.",
+    "expected_safe_source": "checkpack:copilot/concurrency_idempotency@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      },
+      {
+        "turn": 1,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "moderate",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_6791dceb0f7e4ff3",
+      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_6791dceb0f7e4ff3"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  }
+]

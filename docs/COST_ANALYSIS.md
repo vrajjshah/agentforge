@@ -6,8 +6,9 @@ cost-per-token times n: the components below scale differently, and the projecti
 ## Development spend to date
 
 Real, measured. Building + iterating cost a **few dollars total**: the hermetic test suite makes no
-paid calls, and live runs are batched and cost-capped. The largest single batch — 48 authenticated
-attack variants across four categories — logged **31 target model-turns ≈ $2.20**. The auth gate
+paid calls, and live runs are batched and cost-capped. The largest single batch — 71 authenticated
+attack variants across six categories, 46 of them fired at the live target and 25 held back by
+`--safe-live` — logged **35 target model-turns ≈ $2.48**. The auth gate
 rejects unauthenticated probes *before* the target's model runs, so those cost only HTTP (~free);
 the platform's own Judge fires an LLM call only for ambiguous cases (deterministic verdicts are
 free). Deterministic mutation — the bulk of attack generation — makes **no model call at all**.

@@ -248,7 +248,7 @@ async def login_token_form(request: Request) -> Response:
     """
     if not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
         raise HTTPException(status_code=404, detail="break-glass login not enabled")
-    return HTMLResponse(_TOKEN_LOGIN_PAGE.replace(
+    return HTMLResponse(_BREAK_GLASS_PAGE.replace(
         "__RETURN__", html.escape(_safe_return_to(request.query_params.get("return_to")))))
 
 
@@ -497,35 +497,46 @@ def _calibration(cal: dict[str, Any]) -> str:
     conf = cal.get("confusion", {})
     stats = "".join([
         _stat("Agreement", f"{round(100 * cal.get('agreement', 0))}%",
-              f"{cal.get('cases', 0)} human-labelled cases", "accent"),
+              f"held out · {cal.get('cases', 0)} cases", "accent"),
         _stat("Precision", str(cal.get("precision", "—")), "flagged compliance a human agreed with"),
         _stat("Recall", str(cal.get("recall", "—")), "real compliance the rung caught"),
-        _stat("On ambiguous cases", f"{round(100 * cal.get('ambiguous_agreement', 0))}%",
-              f"{cal.get('ambiguous_cases', 0)} designed to be hard"),
     ])
     dis = cal.get("disagreements", [])
     rows = "".join(
         f"<tr><td class=mono>{_esc(d.get('id'))}</td>"
         f"<td>{_esc(d.get('trap') or '—')}</td>"
         f"<td>{'complied' if d.get('human') else 'refused'}</td>"
-        f"<td class={'bad-t' if d.get('judge') != d.get('human') else ''}>"
-        f"{'complied' if d.get('judge') else 'refused'}</td></tr>"
+        f"<td class=bad-t>{'complied' if d.get('judge') else 'refused'}</td>"
+        f"<td class=why>{_esc(d.get('rationale', ''))}</td></tr>"
         for d in dis
     )
     table = (
         "<div class='card scroll' style='margin-top:14px'><table><thead><tr>"
-        "<th>Case</th><th>Designed to trap</th><th>Human</th><th>LLM rung</th>"
-        f"</tr></thead><tbody>{rows}</tbody></table></div>"
+        "<th>Case</th><th>Designed to trap</th><th>Human</th><th>LLM rung</th><th>Why it is a "
+        "miss</th></tr></thead><tbody>" + rows + "</tbody></table></div>"
         if rows else
         "<div class=lead style='margin-top:12px'>No disagreements on this set — which bounds the "
         "error rate at this sample size rather than proving there is none.</div>"
     )
-    model = _esc(cal.get("model", "—"))
+    # The provenance line is the point of the section: a tuned score on its own tuning set is not
+    # a result, and showing the pre-fix number is what makes the post-fix number legible.
+    before, insample = cal.get("before_rubric_fix"), cal.get("in_sample")
+    trail = []
+    if before:
+        trail.append(f"first measurement, before the rubric was revised — agreement "
+                     f"{round(100 * before['agreement'])}%, recall {before['recall']} "
+                     f"({before['cases']} cases)")
+    if insample:
+        trail.append(f"after the revision, on that same set — agreement "
+                     f"{round(100 * insample['agreement'])}%, <b>in-sample, so not a result</b>")
+    trail.append(f"on cases written afterwards and never tuned against — agreement "
+                 f"<b>{round(100 * cal.get('agreement', 0))}%</b>, the number above")
     return (f"<div class=stats>{stats}</div>"
-            f"<div class=lead style='margin-top:12px'>Rung model <code>{model}</code> · "
-            f"confusion tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "
-            f"fn {conf.get('fn', 0)}. Disagreements are published, not summarised away.</div>"
-            f"{table}")
+            f"<div class=lead style='margin-top:12px'>Rung model <code>{_esc(cal.get('model', '—'))}"
+            f"</code> · tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "
+            f"fn {conf.get('fn', 0)}. How this number was arrived at: "
+            + "; then ".join(trail) + ". Every disagreement is published rather than summarised "
+            "away.</div>" + table)
 
 
 def _cost_rows(proj: list[dict[str, Any]]) -> str:
@@ -573,9 +584,13 @@ def _render(d: dict[str, Any], operator: OperatorSession | None = None,
 
     hero = (f"<span class='pill st-{'ok' if status_ok else 'bad'} lg'>"
             f"{'✓  Defense held' if status_ok else '⚠  Findings open'}</span>")
+    fired = totals.get("executed_live", totals.get("total", 0))
+    held_back = totals.get("blocked_live_safety", 0)
     stats = "".join([
-        _stat("Pass rate", f"{pass_pct}%", "target defended", "accent"),
-        _stat("Attack cases", str(totals.get("total", 0)), "authenticated /chat + reads"),
+        _stat("Pass rate", f"{pass_pct}%", f"of {fired} cases actually fired", "accent"),
+        _stat("Attack cases", str(fired),
+              (f"+{held_back} held back for target safety" if held_back
+               else "authenticated /chat + reads")),
         _stat("Categories", str(totals.get("categories", 0)), "OWASP dual-mapped"),
         _stat("Open on live target", str(fs.get("open_on_live_target", 0)), "confirmed exploits"),
         _stat("Findings resolved", str(fs.get("resolved", 0)), "fix-validated"),
@@ -642,7 +657,7 @@ _REPORT_PAGE = (
     "<p><a href='/'>← back to dashboard</a></p><pre>__BODY__</pre>"
 )
 
-_TOKEN_LOGIN_PAGE = (
+_BREAK_GLASS_PAGE = (
     "<!doctype html><meta charset=utf-8><title>Break-glass operator login — AgentForge</title>"
     "<meta name=viewport content='width=device-width,initial-scale=1'>"
     "<meta name=robots content='noindex,nofollow'>"
@@ -780,6 +795,7 @@ th{background:var(--surface-2);color:var(--ink-3);font-size:10.5px;text-transfor
 .seg-blocked{background:repeating-linear-gradient(45deg,var(--ink-3),var(--ink-3) 3px,
  var(--seg-track) 3px,var(--seg-track) 6px)}
 .held-back{color:var(--ink-3);font-size:10.5px;font-weight:600;white-space:nowrap;cursor:help}
+td.why{white-space:normal;color:var(--ink-2);font-size:12px;min-width:260px;line-height:1.45}
 
 /* gated findings panel */
 .card.locked{padding:18px 20px;background:linear-gradient(180deg,var(--surface),var(--surface-2))}

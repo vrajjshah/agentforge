@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-21T07:01:06.105776+00:00",
+  "generated_at": "2026-07-21T15:31:52.753156+00:00",
   "target_version": "8d78c143ee0e9278",
   "taxonomy_version": "owasp-web-2021; owasp-llm-2023",
-  "categories_tested": 4,
+  "categories_tested": 6,
   "coverage_matrix": {
     "data_exfiltration": {
       "total": 12,
@@ -10,6 +10,8 @@
       "fail_exploited": 0,
       "partial": 0,
       "inconclusive": 0,
+      "blocked_live_safety": 0,
+      "executed_live": 12,
       "owasp_web": [
         "A01:2021-Broken-Access-Control"
       ],
@@ -17,27 +19,16 @@
         "LLM06:2023-Sensitive-Information-Disclosure"
       ]
     },
-    "prompt_injection": {
+    "identity_role": {
       "total": 12,
-      "pass_defended": 12,
+      "pass_defended": 6,
       "fail_exploited": 0,
       "partial": 0,
       "inconclusive": 0,
+      "blocked_live_safety": 6,
+      "executed_live": 6,
       "owasp_web": [
-        "A03:2021-Injection"
-      ],
-      "owasp_llm": [
-        "LLM01:2023-Prompt-Injection"
-      ]
-    },
-    "tool_misuse": {
-      "total": 12,
-      "pass_defended": 11,
-      "fail_exploited": 0,
-      "partial": 0,
-      "inconclusive": 1,
-      "owasp_web": [
-        "A05:2021-Security-Misconfiguration"
+        "A01:2021-Broken-Access-Control"
       ],
       "owasp_llm": [
         "LLM08:2023-Excessive-Agency"
@@ -49,11 +40,60 @@
       "fail_exploited": 0,
       "partial": 0,
       "inconclusive": 0,
+      "blocked_live_safety": 0,
+      "executed_live": 12,
       "owasp_web": [
         "A04:2021-Insecure-Design"
       ],
       "owasp_llm": [
         "LLM04:2023-Model-Denial-of-Service"
+      ]
+    },
+    "prompt_injection": {
+      "total": 12,
+      "pass_defended": 12,
+      "fail_exploited": 0,
+      "partial": 0,
+      "inconclusive": 0,
+      "blocked_live_safety": 0,
+      "executed_live": 12,
+      "owasp_web": [
+        "A03:2021-Injection"
+      ],
+      "owasp_llm": [
+        "LLM01:2023-Prompt-Injection"
+      ]
+    },
+    "state_corruption": {
+      "total": 12,
+      "pass_defended": 4,
+      "fail_exploited": 0,
+      "partial": 0,
+      "inconclusive": 0,
+      "blocked_live_safety": 8,
+      "executed_live": 4,
+      "owasp_web": [
+        "A03:2021-Injection",
+        "A04:2021-Insecure-Design"
+      ],
+      "owasp_llm": [
+        "LLM01:2023-Prompt-Injection",
+        "n/a"
+      ]
+    },
+    "concurrency_idempotency": {
+      "total": 11,
+      "pass_defended": 0,
+      "fail_exploited": 0,
+      "partial": 0,
+      "inconclusive": 0,
+      "blocked_live_safety": 11,
+      "executed_live": 0,
+      "owasp_web": [
+        "A04:2021-Insecure-Design"
+      ],
+      "owasp_llm": [
+        "n/a"
       ]
     }
   }

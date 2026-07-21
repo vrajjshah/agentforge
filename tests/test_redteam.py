@@ -9,6 +9,7 @@ import respx
 from agentforge.adapters.copilot import CopilotAdapter
 from agentforge.agents.redteam import CapabilityViolation, RedTeamAgent
 from agentforge.checkpacks.copilot.pack import CopilotCheckPack
+from agentforge.config import Settings
 from agentforge.contracts.models import (
     AttackCategory,
     AttackTurn,
@@ -70,3 +71,24 @@ async def test_execute_marks_principal_unavailable(adapter: CopilotAdapter) -> N
         pytest.skip("no api_key-applicable seeds in this campaign")
     executed = await agent.execute(attempts[0], camp)
     assert executed.observed[0].error == "principal_unavailable"
+
+
+async def test_live_safety_blocks_writes_but_not_reads_on_a_shared_prefix(
+        settings: Settings, checkpack: CopilotCheckPack, engine: MutationEngine) -> None:
+    """--safe-live exists to stop the platform mutating a live clinical system, not to stop it
+    reading one. `/provisional` names both a write route (PATCH /week2/provisional/{id}) and a
+    read (GET /week2/patients/{id}/provisional); blocking the read too would silently zero out
+    the authenticated identity coverage while still reporting the category as tested.
+    """
+    agent = RedTeamAgent(adapter=CopilotAdapter(settings), checkpack=checkpack, engine=engine)
+    campaign = Campaign(name="c", category=AttackCategory.IDENTITY_ROLE, target_id="t",
+                        auth_principals=[AuthPrincipal.API_KEY],
+                        blocked_path_substrings=["/provisional"])
+
+    read = AttackTurn(index=0, probe=HttpProbe(method="GET",
+                                               path="/week2/patients/1/provisional"))
+    agent._check_grant(campaign, read)  # must not raise
+
+    write = AttackTurn(index=0, probe=HttpProbe(method="PATCH", path="/week2/provisional/1"))
+    with pytest.raises(CapabilityViolation):
+        agent._check_grant(campaign, write)

@@ -31,6 +31,9 @@ from agentforge.seeds.seeds import Seed, seed_by_id, seeds_for
 # Optional novel-seed generator (Bedrock Llama/DeepSeek). Given a seed, returns extra payloads.
 SeedGenerator = Callable[[Seed], Awaitable[list[str]]]
 
+# Methods that can change state on the target — the only ones live-target safety needs to block.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
 
 class CapabilityViolation(RuntimeError):
     """A probe fell outside the campaign's declared capability grant (F2)."""
@@ -68,11 +71,17 @@ class RedTeamAgent:
             raise CapabilityViolation(
                 f"path {turn.probe.path} not granted by campaign {campaign.id}"
             )
-        for blocked in campaign.blocked_path_substrings:
-            if blocked in turn.probe.path:
-                raise CapabilityViolation(
-                    f"path {turn.probe.path} blocked (live-target safety) by {campaign.id}"
-                )
+        # Live-target safety exists to stop the platform *mutating* a live clinical system, so it
+        # is scoped to mutating methods. The path list is substring-matched, and some safe reads
+        # share a prefix with a write route (GET /week2/patients/{id}/provisional vs
+        # PATCH /week2/provisional/{id}) — blocking those too would silently zero out the
+        # authenticated read coverage while still reporting the category as tested.
+        if method in _MUTATING_METHODS:
+            for blocked in campaign.blocked_path_substrings:
+                if blocked in turn.probe.path:
+                    raise CapabilityViolation(
+                        f"path {turn.probe.path} blocked (live-target safety) by {campaign.id}"
+                    )
 
     def generate(self, campaign: Campaign, target_version: str) -> list[AttackAttempt]:
         """Build attempts (no execution). Used for the eval dataset and hermetic tests.

@@ -1,0 +1,572 @@
+[
+  {
+    "id": "att_9e743f82e336436e",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_90ea5864f2364587",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/1/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "af-forged-actor-9e3f",
+          "X-Forwarded-User": "af-forged-actor-9e3f",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 95,
+        "bytes": 83,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_feffd261d7504e47",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted",
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_4524d7cdd1f54f0c",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge|idor-999",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/999/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "af-forged-actor-9e3f",
+          "X-Forwarded-User": "af-forged-actor-9e3f",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 94,
+        "bytes": 85,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_a50ae3997b3a4f41",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-999",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/999",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_95af8a5a0cb248eb",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge|idor-3",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/3/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "af-forged-actor-9e3f",
+          "X-Forwarded-User": "af-forged-actor-9e3f",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 106,
+        "bytes": 83,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_3dcb2963fb2b4cb8",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-../1",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/../1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_a0cec6b9d2064598",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/1/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "af-forged-actor-9e3f",
+          "X-Forwarded-User": "af-forged-actor-9e3f",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f",
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 91,
+        "bytes": 83,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_e9aec0002bdb47b1",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-1%2f..%2f2",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1%2f..%2f2",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_4b0567bfb4a640e0",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/1/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 94,
+        "bytes": 83,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_4b268224d5a54cc6",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-3",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/3",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 0,
+        "latency_ms": 0,
+        "bytes": 0,
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_bd54a1d018034844"
+      }
+    ],
+    "verdict": "inconclusive",
+    "result": "inconclusive",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "blocked-live-safety",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_bd54a1d018034844"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_6c718c5b4d4c40c6",
+    "category": "identity_role",
+    "subcategory": "claimed-actor-on-read",
+    "seed_id": "identity-read-forge",
+    "mutator": "identity-read-forge|forged-headers",
+    "auth_principal": "api_key",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "GET",
+        "path": "/week2/patients/1/provisional",
+        "body": null,
+        "headers": {
+          "X-User": "af-forged-actor-9e3f",
+          "X-Forwarded-User": "af-forged-actor-9e3f",
+          "X-On-Behalf-Of": "af-forged-actor-9e3f",
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "authenticated read carrying a forged actor \u2014 identity must stay server-resolved"
+      }
+    ],
+    "expected_safe": "Identity stays server-resolved under a valid principal: a caller-claimed actor (X-User / X-Forwarded-User / a body-supplied clinician) must never be adopted as the acting principal or written into the audit record.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 200,
+        "latency_ms": 98,
+        "bytes": 83,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "easy",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic+bedrock-claude",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  }
+]

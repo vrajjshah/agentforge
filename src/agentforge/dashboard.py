@@ -115,11 +115,16 @@ async def build_dashboard_data() -> dict[str, Any]:
     cov, cost, surface, fingerprint = _coverage_and_cost()
     matrix = cov.get("coverage_matrix", {})
     totals = dict.fromkeys(
-        ("total", "pass_defended", "fail_exploited", "partial", "inconclusive"), 0)
+        ("total", "pass_defended", "fail_exploited", "partial", "inconclusive",
+         "blocked_live_safety", "executed_live"), 0)
     for m in matrix.values():
         for k in totals:
-            totals[k] += m.get(k, 0)
-    pass_rate = round(totals["pass_defended"] / totals["total"], 3) if totals["total"] else 0.0
+            totals[k] += m.get(k, m.get("total", 0) if k == "executed_live" else 0)
+    # Over what actually fired. Variants --safe-live held back never reached the target, so
+    # counting them in the denominator would report the platform's own safety guard as the
+    # target failing — the mirror image of the inflation this dashboard is careful to avoid.
+    fired = totals["executed_live"]
+    pass_rate = round(totals["pass_defended"] / fired, 3) if fired else 0.0
     findings = _load(_REPORTS / "findings.json") or []
     live_exploited = totals["fail_exploited"]
 
@@ -138,7 +143,7 @@ async def build_dashboard_data() -> dict[str, Any]:
         "totals": {**totals, "pass_rate": pass_rate, "categories": len(matrix)},
         "resilience": [
             {"fingerprint": fingerprint, "run_at": cov.get("generated_at", "—"),
-             "cases": totals["total"], "pass_rate": pass_rate}
+             "cases": fired, "pass_rate": pass_rate}
         ],
         "findings": findings,
         "findings_summary": {
@@ -171,22 +176,44 @@ async def _self_test() -> dict[str, Any]:
             "interpretation": d["interpretation"]}
 
 
+_CAL_KEYS = ("model", "generated_at", "cases", "confusion", "agreement", "precision",
+             "recall", "ambiguous_cases", "ambiguous_agreement")
+
+
 def _calibration() -> dict[str, Any]:
     """The LLM rung scored against human labels — the number the deterministic self-test can't
-    produce. Absent until someone pays for a live run; reported as uncalibrated, never as 1.0."""
-    from agentforge.judge_calibration import load_cases, read_results
+    produce.
 
-    recorded = read_results()
-    if recorded is None:
-        return {"calibrated": False, "labelled_cases": len(load_cases()),
+    The headline is the **held-out** score. The development set is what the rubric was tuned
+    against, so publishing its (perfect) number as the result would repeat exactly the mistake
+    this section exists to correct; it is carried alongside, labelled in-sample, together with the
+    pre-revision score that found the gap. Absent until someone pays for a live run, in which case
+    the rung is reported as uncalibrated — never as 1.0.
+    """
+    from agentforge.judge_calibration import SETS, load_cases, read_results
+
+    dev_cases, dev_results = SETS["dev"]
+    hold_cases, hold_results = SETS["holdout"]
+    held = read_results(hold_results)
+    if held is None:
+        n = len(load_cases(dev_cases)) + len(load_cases(hold_cases))
+        return {"calibrated": False, "labelled_cases": n,
                 "note": "The LLM compliance rung has not been calibrated on this build. "
                         "Run `agentforge judge-calibration --live`."}
-    return {"calibrated": True,
-            **{k: recorded[k] for k in
-               ("model", "generated_at", "cases", "confusion", "agreement", "precision",
-                "recall", "ambiguous_cases", "ambiguous_agreement")},
-            "disagreements": [{"id": d["id"], "trap": d["trap"], "human": d["human"],
-                               "judge": d["judge"]} for d in recorded["disagreements"]]}
+    out: dict[str, Any] = {
+        "calibrated": True,
+        **{k: held[k] for k in _CAL_KEYS},
+        "sample": "held out — written after the rubric and never tuned against",
+        "disagreements": [{"id": d["id"], "trap": d["trap"], "human": d["human"],
+                           "judge": d["judge"], "rationale": d["rationale"]}
+                          for d in held["disagreements"]],
+    }
+    for key, path in (("in_sample", dev_results),
+                      ("before_rubric_fix", SETS["dev"][1].with_name("results_rubric_v1.json"))):
+        rec = read_results(path)
+        if rec is not None:
+            out[key] = {k: rec[k] for k in ("cases", "agreement", "precision", "recall")}
+    return out
 
 
 def _cost_projection() -> list[dict[str, Any]]:

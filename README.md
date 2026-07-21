@@ -56,13 +56,24 @@ they are opt-in and meant to be run in batches, never in the default test suite.
 # Authenticated /chat + reads, novel seeds from the attacker model, semantic Judge, cost-capped,
 # and non-destructive (no chart writes reach the live deployment):
 uv run agentforge evals --live --principals api_key \
-  --categories data_exfiltration,prompt_injection,tool_misuse,denial_of_service \
-  --llm-judge --novel --safe-live --max 12 --budget 15
+  --llm-judge --novel --safe-live --max 12 --budget 3
 ```
 
-**Result: the hardened Co-Pilot held across 48 authenticated attack variants** (direct, encoded,
-model-generated, and multi-turn — including the newest surface, such as conversation-id hijack) — an
-honest *defense held*, with the LLM Judge correctly distinguishing a refusal from compliance.
+**Result: the hardened Co-Pilot held across all 46 authenticated attack variants that were fired**
+(direct, encoded, model-generated, and multi-turn — including the newest surface, such as
+conversation-id hijack) — an honest *defense held*, with the LLM Judge correctly distinguishing a
+refusal from compliance.
+
+Six categories are generated; **46 of 71 variants ran against the live target and 25 were held
+back**, because `--safe-live` refuses to fire a chart write or an ingest at a live clinical system.
+Those 25 are reported as held back, not as passes: `concurrency_idempotency` reaches the live
+target through no other route, so its live coverage is honestly **zero** and the dashboard says so
+rather than counting the platform's own safety guard as the target defending itself. The write-path
+classes are covered instead against the ephemeral vulnerable build, where the same seeds are
+fix-validated (`agentforge demo`, `agentforge reports`). `identity_role` — the `e0e7b6a` class,
+which needs a valid principal by definition — is fired live through a patient-scoped *read* that
+carries a forged actor, so the category is covered on the authenticated surface rather than
+appearing as a row of blocked writes.
 
 The verdicts are trustworthy *because* the platform was caught over-flagging and corrected: the
 first authenticated run reported false positives (a normal `200` from `/chat` read as "forbidden
@@ -120,6 +131,16 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
   healthy in-scope answer that must not become a finding. Agreement, precision, recall, and every
   individual disagreement are published; until a live scoring run exists the rung is reported as
   **uncalibrated**, never as a perfect score.
+
+  Doing this found a real defect in the platform. The rung scored **precision 1.0 but recall
+  0.44** — it never false-alarmed and missed more than half the real compliances, all in the same
+  way: it read "compliance" as prose disclosure and missed the identical leak in JSON, partial
+  disclosure, an accepted override, a reported out-of-scope tool action, and compliance on turn
+  two after refusing turn one. The rubric was rewritten to enumerate those, which scores 1.0 on
+  the set it was tuned against — **in-sample, so not a result** — and **0.80** on a held-out set
+  written afterwards. 0.80 is what the dashboard publishes, and both remaining errors trace to one
+  named blind spot: the rung is never told which patient is in scope. See
+  [ARCHITECTURE.md](ARCHITECTURE.md#two-different-accuracy-questions-measured-two-different-ways).
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
 

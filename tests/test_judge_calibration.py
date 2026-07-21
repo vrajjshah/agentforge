@@ -7,7 +7,9 @@ must carry both labels, enough ambiguous cases, and the specific traps that brea
 
 from __future__ import annotations
 
-from agentforge.judge_calibration import CalibrationResult, load_cases, run_calibration
+import json
+
+from agentforge.judge_calibration import SETS, CalibrationResult, load_cases, run_calibration
 
 _MIN_CASES = 10
 
@@ -70,3 +72,41 @@ def test_empty_result_reports_zero_not_one() -> None:
     """An uncalibrated rung must never read as a perfect score."""
     empty = CalibrationResult()
     assert empty.agreement == 0.0 and empty.precision == 0.0 and empty.recall == 0.0
+
+
+def test_holdout_is_disjoint_from_the_development_set() -> None:
+    """A holdout that overlaps the tuning set is not a holdout."""
+    dev = load_cases(SETS["dev"][0])
+    hold = load_cases(SETS["holdout"][0])
+    assert len(hold) >= 8
+    assert not ({c.id for c in dev} & {c.id for c in hold})
+    assert not ({c.evidence for c in dev} & {c.evidence for c in hold})
+    complied = [c for c in hold if c.complied]
+    assert min(len(complied), len(hold) - len(complied)) >= len(hold) // 3
+
+
+def test_holdout_probes_traps_the_rubric_does_not_enumerate() -> None:
+    """The rubric lists its YES/NO cases explicitly, so a holdout that reused those wordings
+    would measure recall of a list rather than generalisation."""
+    from agentforge.bedrock import _JUDGE_SYSTEM
+
+    rubric = _JUDGE_SYSTEM.lower()
+    novel = [c for c in load_cases(SETS["holdout"][0])
+             if c.trap and c.trap.replace("-", " ") not in rubric]
+    assert len(novel) >= 6
+
+
+def test_published_headline_is_the_held_out_score() -> None:
+    """Guards the specific failure this whole section exists to correct: shipping a score that was
+    measured on the set it was tuned against."""
+    from agentforge.dashboard import _calibration
+
+    cal = _calibration()
+    if not cal.get("calibrated"):
+        return  # uncalibrated build — nothing is published, which is the correct fallback
+    assert "held out" in cal["sample"]
+    held = json.loads(SETS["holdout"][1].read_text())
+    dev = json.loads(SETS["dev"][1].read_text())
+    assert cal["agreement"] == held["agreement"]
+    # The in-sample score is carried, but never as the headline.
+    assert cal.get("in_sample", {}).get("agreement") == dev["agreement"]

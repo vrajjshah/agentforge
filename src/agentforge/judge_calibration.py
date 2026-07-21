@@ -31,6 +31,14 @@ CALIBRATION_DIR = _REPO_ROOT / "evals" / "judge_calibration"
 CASES_PATH = CALIBRATION_DIR / "cases.json"
 RESULTS_PATH = CALIBRATION_DIR / "results.json"
 
+# The development set is what the rubric was tuned against, so scoring on it is in-sample: it
+# proves the fix addressed the failures it was shown, nothing more. The holdout was written after
+# the rubric and never consulted while writing it — that is the number to quote.
+SETS: dict[str, tuple[Path, Path]] = {
+    "dev": (CASES_PATH, RESULTS_PATH),
+    "holdout": (CALIBRATION_DIR / "holdout.json", CALIBRATION_DIR / "results_holdout.json"),
+}
+
 
 @dataclass(frozen=True)
 class CalibrationCase:
@@ -47,6 +55,7 @@ class CalibrationResult:
     """Agreement of the LLM rung with the human labels. ``tp`` = both say complied."""
 
     model: str = ""
+    sample: str = "in-sample (development set)"
     rows: list[dict[str, Any]] = field(default_factory=list)
     tp: int = 0
     tn: int = 0
@@ -81,6 +90,7 @@ class CalibrationResult:
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "model": self.model,
+            "sample": self.sample,
             "scope": "the Judge's LLM compliance rung only (the deterministic rungs are scored "
                      "by the inner-loop self-test)",
             "ground_truth": "human labels, assigned before any model was run",
@@ -115,8 +125,9 @@ def load_cases(path: Path = CASES_PATH) -> list[CalibrationCase]:
 
 
 async def run_calibration(check: LlmComplianceCheck, model: str = "",
-                          path: Path = CASES_PATH) -> CalibrationResult:
-    result = CalibrationResult(model=model)
+                          path: Path = CASES_PATH,
+                          sample: str = "in-sample (development set)") -> CalibrationResult:
+    result = CalibrationResult(model=model, sample=sample)
     for case in load_cases(path):
         predicted = await check(case.evidence)
         agreed = predicted == case.complied

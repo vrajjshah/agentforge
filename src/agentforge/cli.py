@@ -178,30 +178,38 @@ async def _cmd_judge_calibration(settings: Settings, args: argparse.Namespace) -
     """Score the LLM compliance rung against human labels — the number the deterministic
     self-test cannot produce. Live only; otherwise report the last recorded run."""
     from agentforge.judge_calibration import (
+        SETS,
         load_cases,
         read_results,
         run_calibration,
         write_results,
     )
 
+    cases_path, results_path = SETS[args.case_set]
+    sample = ("in-sample (rubric was tuned on this set)" if args.case_set == "dev"
+              else "held out (written after the rubric, never tuned against)")
+
     if not args.live:
-        recorded = read_results()
+        recorded = read_results(results_path)
         if recorded is None:
-            print(f"LLM rung is UNCALIBRATED ({len(load_cases())} labelled cases ready). "
-                  "Run: agentforge judge-calibration --live", file=sys.stderr)
+            print(f"LLM rung is UNCALIBRATED on the {args.case_set} set "
+                  f"({len(load_cases(cases_path))} labelled cases ready). "
+                  f"Run: agentforge judge-calibration --live --set {args.case_set}",
+                  file=sys.stderr)
             return 1
         print(json.dumps({k: recorded[k] for k in
-                          ("model", "generated_at", "cases", "confusion", "agreement",
+                          ("model", "sample", "generated_at", "cases", "confusion", "agreement",
                            "precision", "recall", "ambiguous_agreement")}, indent=2))
         return 0
 
     from agentforge.bedrock import make_judge_compliance_check
 
-    cases = load_cases()
-    print(f"calibrating the LLM rung on {len(cases)} human-labelled cases "
-          f"({settings.judge_model}) — one model call each", file=sys.stderr)
-    result = await run_calibration(make_judge_compliance_check(settings), settings.judge_model)
-    path = write_results(result)
+    cases = load_cases(cases_path)
+    print(f"calibrating the LLM rung on {len(cases)} human-labelled cases from the "
+          f"{args.case_set} set ({settings.judge_model}) — one model call each", file=sys.stderr)
+    result = await run_calibration(make_judge_compliance_check(settings), settings.judge_model,
+                                   cases_path, sample)
+    path = write_results(result, results_path)
     print(f"wrote {path.relative_to(_REPO_ROOT)}", file=sys.stderr)
     print(json.dumps({"cases": result.total, "agreement": result.agreement,
                       "precision": result.precision, "recall": result.recall,
@@ -236,6 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     cal.add_argument("--live", action="store_true",
                      help="run the real Bedrock rung (one model call per case); without it, "
                           "print the last recorded calibration")
+    cal.add_argument("--set", dest="case_set", default="holdout", choices=["dev", "holdout"],
+                     help="dev = the set the rubric was tuned on (in-sample); "
+                          "holdout = written after the rubric, never tuned against (default)")
     ssor = sub.add_parser("sso-register", help="register this dashboard as an OpenEMR OAuth client")
     ssor.add_argument("--redirect-uri", required=True, help="the dashboard's /callback URL")
 
