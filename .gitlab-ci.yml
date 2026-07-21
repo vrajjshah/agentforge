@@ -70,7 +70,9 @@ stages:
 gate:
   stage: gate
   before_script:
-    - pip install --quiet --no-cache-dir uv
+    # uv may already be present (a shell executor runs on a real machine, not a bare container),
+    # and reinstalling it there would write into whatever Python happens to be on PATH.
+    - command -v uv >/dev/null || pip install --quiet --no-cache-dir uv
     - uv sync --frozen
   script:
     # Same order as .githooks/pre-push, cheapest first, so a lint break fails in seconds.
