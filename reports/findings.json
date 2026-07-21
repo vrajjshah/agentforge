@@ -1,6 +1,6 @@
 [
   {
-    "id": "vuln_58f9164954b14916",
+    "id": "vuln_278472eedf7f4fa6",
     "seed": "ea8fa01",
     "severity": "critical",
     "category": "data_exfiltration",
@@ -11,7 +11,7 @@
     "file": "ea8fa01.md"
   },
   {
-    "id": "vuln_0496843b97504a7c",
+    "id": "vuln_7dc62d9fc7654bcf",
     "seed": "e0e7b6a",
     "severity": "high",
     "category": "identity_role",
@@ -22,7 +22,7 @@
     "file": "e0e7b6a.md"
   },
   {
-    "id": "vuln_fd800a77d1964c5a",
+    "id": "vuln_b92b653e3905465a",
     "seed": "b5f4b1e",
     "severity": "medium",
     "category": "concurrency_idempotency",
@@ -33,7 +33,7 @@
     "file": "b5f4b1e.md"
   },
   {
-    "id": "vuln_a76befd7ebcb4d28",
+    "id": "vuln_63dd05884fe14b88",
     "seed": "reconciliation-amplify",
     "severity": "low",
     "category": "denial_of_service",

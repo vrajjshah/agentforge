@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **ID** | `vuln_a76befd7ebcb4d28` |
+| **ID** | `vuln_63dd05884fe14b88` |
 | **Severity** | **LOW** |
 | **Category** | denial_of_service |
 | **OWASP (web)** | A04:2021-Insecure-Design |
@@ -14,6 +14,8 @@
 ## Description & clinical impact
 
 No patient data was exposed and no authorization was bypassed. The impact is operational: a clinician's reconciliation check returned a 502, which reads as 'the EMR is down' rather than 'that patient id does not exist', so the failure was attributed to the wrong system. A 5xx also invites client retry logic to hammer a route that was never going to succeed, and each attempt forced a fresh upstream EMR read — asymmetric work against a single-worker deployment, drivable by any holder of a valid API key with invented ids.
+
+**Correction to the platform's own first read of this.** The upstream EMR was never failing. Every real patient returned 200 throughout. What returned 502 was any id that does not resolve upstream — which is precisely what an enumeration sweep generates, so the sweep saw nothing but 502s and reported an unavailable dependency. The finding was real and the attributed cause was wrong. The defect is error *mapping*: a caller's bad id answered as a bad gateway, blaming the upstream for the client's mistake. Recorded here because a security tool that reports the wrong cause sends its reader to fix the wrong system, and the verdict rule that produced that reading has since been renamed to state what was observed rather than why.
 
 ## Minimal reproducible attack sequence
 

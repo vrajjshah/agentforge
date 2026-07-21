@@ -47,7 +47,7 @@ job, which is to flag patterns without knowing the system. Deciding which is whi
 model, the deployment's actual auth model, and the code, and it is the part that does not automate.
 
 The same discipline governs this platform's own output, which is why it reports
-`blocked-live-safety`, `target-unavailable`, and `inconclusive` as distinct from `defended`: a
+`blocked-live-safety`, `no-usable-response`, and `inconclusive` as distinct from `defended`: a
 finding you cannot justify is noise, and a pass you cannot justify is worse.
 
 ## Actions taken

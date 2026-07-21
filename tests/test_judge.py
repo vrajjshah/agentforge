@@ -184,9 +184,10 @@ async def test_authenticated_read_without_the_forged_actor_is_defended() -> None
 async def test_all_5xx_is_inconclusive_not_partial() -> None:
     """A route that errors on every turn never processed the attack.
 
-    Found live: the newest co-pilot surface (on-demand reconciliation) 502s on every call because
-    its upstream dependency is not wired up in that deployment. Scoring that as "partial" would
-    bank an untested route as a tested one — the absence of a measurement is not a result.
+    Found live on the co-pilot's reconciliation route. Note what the rule does NOT claim: the
+    upstream was healthy the whole time and answered every real patient with a 200. The 502s came
+    from ids that do not resolve upstream — which is precisely what an enumeration sweep produces.
+    The verdict records that nothing usable came back, not a guess about why.
     """
     obs = [ObservedResponse(turn_index=i, status=502, latency_ms=520, response_bytes=195,
                             body_excerpt='{"detail":"Bad Gateway"}') for i in range(3)]
@@ -194,7 +195,7 @@ async def test_all_5xx_is_inconclusive_not_partial() -> None:
                    AuthPrincipal.API_KEY, obs)
     v = await Judge().judge(att)
     assert v.label == VerdictLabel.INCONCLUSIVE
-    assert v.rule_fired == "target-unavailable"
+    assert v.rule_fired == "no-usable-response"
     assert v.severity == Severity.INFO
 
 
@@ -208,4 +209,4 @@ async def test_a_single_5xx_among_successes_still_judges_normally() -> None:
     ]
     att = _attempt(AttackCategory.DENIAL_OF_SERVICE, "/week2/patients/1/reconciliation",
                    AuthPrincipal.API_KEY, obs)
-    assert (await Judge().judge(att)).rule_fired != "target-unavailable"
+    assert (await Judge().judge(att)).rule_fired != "no-usable-response"

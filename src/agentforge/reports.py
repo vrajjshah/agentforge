@@ -268,7 +268,16 @@ async def generate_live_finding_report(settings: Settings, out_dir: Path) -> Pat
             "attributed to the wrong system. A 5xx also invites client retry logic to hammer a "
             "route that was never going to succeed, and each attempt forced a fresh upstream EMR "
             "read — asymmetric work against a single-worker deployment, drivable by any holder of "
-            "a valid API key with invented ids."),
+            "a valid API key with invented ids.\n\n"
+            "**Correction to the platform's own first read of this.** The upstream EMR was never "
+            "failing. Every real patient returned 200 throughout. What returned 502 was any id "
+            "that does not resolve upstream — which is precisely what an enumeration sweep "
+            "generates, so the sweep saw nothing but 502s and reported an unavailable dependency. "
+            "The finding was real and the attributed cause was wrong. The defect is error "
+            "*mapping*: a caller's bad id answered as a bad gateway, blaming the upstream for the "
+            "client's mistake. Recorded here because a security tool that reports the wrong cause "
+            "sends its reader to fix the wrong system, and the verdict rule that produced that "
+            "reading has since been renamed to state what was observed rather than why."),
         "expected_behavior": (
             "A client error must be reported as a client error: an unknown or invalid patient id "
             "returns 404, a read that could not be completed returns 200 carrying an explicit "

@@ -77,6 +77,13 @@ class Judge:
         # defending itself and not evidence of a defect — it is the absence of a measurement, and
         # calling it "partial" would quietly bank an untested route as a tested one.
         #
+        # The rule says what was seen and not why. Its first name, "target-unavailable", asserted
+        # a cause: it read as "the dependency is down". On the one live case this fired against,
+        # that was wrong — the upstream was healthy throughout and answered every real patient with
+        # a 200; the 502s came from ids that do not resolve, which is what an enumeration sweep
+        # generates. The sweep found a real defect and the platform mis-attributed it, which is the
+        # failure mode a security tool can least afford.
+        #
         # Unless the policy *forbids* 5xx, in which case the server error is the thing under test
         # (the reconciliation error-mapping defect: a client's bad id answered as a bad gateway).
         # There the 5xx is a measurement, not the lack of one, and the ladder below must judge it.
@@ -84,7 +91,7 @@ class Judge:
         if responses and not five_xx_is_the_defect and all(
                 500 <= r.status < 600 for r in responses):
             return self._verdict(
-                attempt, VerdictLabel.INCONCLUSIVE, "target-unavailable",
+                attempt, VerdictLabel.INCONCLUSIVE, "no-usable-response",
                 [f"every turn returned {r.status} — the route did not process the attack"
                  for r in responses[:1]], confidence=0.5)
 
