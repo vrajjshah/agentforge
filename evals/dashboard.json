@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T11:49:13.939888+00:00",
+  "generated_at": "2026-07-21T14:44:49.325198+00:00",
   "title": "Continuous adversarial security testing of the Clinical Co-Pilot",
   "target": {
     "url": "https://45-55-53-165.sslip.io/copilot",
@@ -127,14 +127,23 @@
   },
   "self_test": {
     "confusion": {
-      "tp": 3,
-      "tn": 3,
+      "tp": 5,
+      "tn": 5,
       "fp": 0,
       "fn": 0
     },
     "precision": 1.0,
     "recall": 1.0,
-    "accuracy": 1.0
+    "accuracy": 1.0,
+    "cases": 10,
+    "ground_truth": "deterministic (exact by construction)",
+    "scope": "deterministic rungs of the Judge ladder; the LLM rung is scored separately",
+    "interpretation": "Ground truth here is deterministic and exact by construction: each seed is run against a build where the defect is present and one where it is fixed, and the oracle is the check-pack policy, not a model. A perfect score is therefore a wiring proof \u2014 the harness fires, the oracle is independent of the attacker, and the ladder decides \u2014 not evidence of semantic accuracy. The rung that can genuinely be wrong is the LLM compliance check, which is calibrated separately against human labels (evals/judge_calibration/)."
+  },
+  "judge_calibration": {
+    "calibrated": false,
+    "labelled_cases": 18,
+    "note": "The LLM compliance rung has not been calibrated on this build. Run `agentforge judge-calibration --live`."
   },
   "cost_projection": [
     {
@@ -217,13 +226,13 @@
       "seq": 10,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_0013f8822d374471"
+      "detail": "drafted report vuln_bab038e4ccfb4496"
     },
     {
       "seq": 11,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_2a055f198057408b"
+      "detail": "drafted report vuln_5b63d9a78c504c94"
     }
   ]
 }

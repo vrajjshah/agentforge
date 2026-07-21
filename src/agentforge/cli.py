@@ -174,6 +174,43 @@ def _cmd_sso_register(redirect_uri: str) -> int:
     return 0
 
 
+async def _cmd_judge_calibration(settings: Settings, args: argparse.Namespace) -> int:
+    """Score the LLM compliance rung against human labels — the number the deterministic
+    self-test cannot produce. Live only; otherwise report the last recorded run."""
+    from agentforge.judge_calibration import (
+        load_cases,
+        read_results,
+        run_calibration,
+        write_results,
+    )
+
+    if not args.live:
+        recorded = read_results()
+        if recorded is None:
+            print(f"LLM rung is UNCALIBRATED ({len(load_cases())} labelled cases ready). "
+                  "Run: agentforge judge-calibration --live", file=sys.stderr)
+            return 1
+        print(json.dumps({k: recorded[k] for k in
+                          ("model", "generated_at", "cases", "confusion", "agreement",
+                           "precision", "recall", "ambiguous_agreement")}, indent=2))
+        return 0
+
+    from agentforge.bedrock import make_judge_compliance_check
+
+    cases = load_cases()
+    print(f"calibrating the LLM rung on {len(cases)} human-labelled cases "
+          f"({settings.judge_model}) — one model call each", file=sys.stderr)
+    result = await run_calibration(make_judge_compliance_check(settings), settings.judge_model)
+    path = write_results(result)
+    print(f"wrote {path.relative_to(_REPO_ROOT)}", file=sys.stderr)
+    print(json.dumps({"cases": result.total, "agreement": result.agreement,
+                      "precision": result.precision, "recall": result.recall,
+                      "confusion": {"tp": result.tp, "tn": result.tn,
+                                    "fp": result.fp, "fn": result.fn},
+                      "disagreements": [d["id"] for d in result.disagreements]}, indent=2))
+    return 0
+
+
 def _cmd_export(_settings: Settings) -> int:
     from agentforge.contracts.export_schemas import export
 
@@ -194,6 +231,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("dashboard", help="rebuild evals/dashboard.json for the observability dashboard")
     sub.add_parser("cost", help="regenerate docs/COST_ANALYSIS.md (scaling model)")
     sub.add_parser("inner-loop", help="testing-the-tester eval (precision/recall vs ground truth)")
+    cal = sub.add_parser("judge-calibration",
+                         help="score the Judge's LLM rung against the human-labelled set")
+    cal.add_argument("--live", action="store_true",
+                     help="run the real Bedrock rung (one model call per case); without it, "
+                          "print the last recorded calibration")
     ssor = sub.add_parser("sso-register", help="register this dashboard as an OpenEMR OAuth client")
     ssor.add_argument("--redirect-uri", required=True, help="the dashboard's /callback URL")
 
@@ -256,6 +298,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"confusion": data["confusion"], "precision": data["precision"],
                           "recall": data["recall"], "accuracy": data["accuracy"]}, indent=2))
         return 0
+    if args.cmd == "judge-calibration":
+        return asyncio.run(_cmd_judge_calibration(settings, args))
     if args.cmd == "sso-register":
         return _cmd_sso_register(args.redirect_uri)
     if args.cmd == "run":

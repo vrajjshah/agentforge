@@ -96,7 +96,9 @@ is the spine of the demo video.
 
 ```bash
 uv run agentforge dashboard   # rebuild the dashboard data (coverage, findings, cost, activity)
-uv run agentforge inner-loop  # testing-the-tester: precision/recall/accuracy vs known ground truth
+uv run agentforge inner-loop  # testing-the-tester: the Judge's deterministic rungs vs ground truth
+uv run agentforge judge-calibration        # last recorded LLM-rung agreement with human labels
+uv run agentforge judge-calibration --live # re-score it (one model call per labelled case)
 uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model, not cost x n)
 ```
 
@@ -104,9 +106,20 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
 - **Langfuse tracing** — each campaign is a trace with a nested span per agent hop; PHI-shaped
   values are masked before sending. Optional (no-op without keys). Cloud is used here for synthetic
   data; real PHI would self-host Langfuse under the same BAA (see [ARCHITECTURE.md](ARCHITECTURE.md)).
-- **Inner-loop eval** — scores the platform's *own* verdicts against ground truth
-  (vulnerable vs fixed builds): currently precision 1.0 / recall 1.0 / accuracy 1.0 on the seeded
-  defects, so a "defense held" result is trustworthy, not an artifact of a lazy judge.
+- **Inner-loop eval** — scores the platform's *own* verdicts against ground truth (each seeded
+  defect run against a build where it is present and one where it is fixed). Read the score for
+  what it is: this ground truth is **deterministic and exact by construction** — a status code
+  either is 401 or it isn't — so a clean sweep here is a *wiring proof* (the harness fires, the
+  oracle comes from the check-pack rather than the attacker, the ladder decides), not evidence of
+  semantic accuracy. Treating it as an accuracy claim would be the overfit reading.
+- **Judge calibration** — the rung that can genuinely be wrong is the narrow LLM compliance check
+  on ambiguous `/chat` turns, so it is scored **separately, against human labels**
+  (`evals/judge_calibration/cases.json`). The set is built from the cases that break naive scoring
+  in both directions: refusals that echo PHI vocabulary, refusals that quote the injection back,
+  compliance hidden behind a refusal preamble, compliance wrapped in a safety justification, and a
+  healthy in-scope answer that must not become a finding. Agreement, precision, recall, and every
+  individual disagreement are published; until a live scoring run exists the rung is reported as
+  **uncalibrated**, never as a perfect score.
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
 

@@ -73,7 +73,7 @@ class Judge:
             and self._llm is not None
             and any(r.status == 200 and r.body_excerpt for r in responses)
         ):
-            evidence_blob = _delimited_evidence(responses)
+            evidence_blob = delimited_evidence(responses)
             complied = await self._llm(evidence_blob)
             if complied:
                 return self._verdict(attempt, VerdictLabel.EXPLOITED, "llm-compliance",
@@ -172,7 +172,7 @@ def _deterministic_ladder(
     return VerdictLabel.DEFENDED, "deterministic-safe", evidence or ["all policy assertions held"]
 
 
-def _delimited_evidence(responses: list[ObservedResponse]) -> str:
+def delimited_evidence(responses: list[ObservedResponse]) -> str:
     """Wrap target output as untrusted evidence so the LLM rung can't be reprogrammed by it."""
     blocks = [
         f"<<UNTRUSTED_TARGET_RESPONSE status={r.status}>>\n{r.body_excerpt}\n<<END>>"

@@ -58,6 +58,7 @@ def build_target(*, vulnerable: bool) -> FastAPI:
 
     # Confirm-to-chart write — reproduces e0e7b6a (attribution forgery) and b5f4b1e (TOCTOU).
     confirmed_ids: set[str] = set()
+    rejected_reasons: dict[str, str] = {}
 
     @app.post("/week2/confirm/{fact_id}")
     async def confirm(fact_id: str, request: Request) -> JSONResponse:
@@ -94,7 +95,9 @@ def build_target(*, vulnerable: bool) -> FastAPI:
 
     @app.post("/week2/reject/{fact_id}")
     async def reject(fact_id: str, request: Request) -> JSONResponse:
-        # stored-payload-reflection: the free-text reason is persisted and echoed back.
+        # Two seeded defects share this route: stored-payload-reflection (the free-text reason is
+        # persisted and echoed back) and 7fbf995 (a second reject overwrites the first clinician's
+        # reason, destroying the audit record).
         body: dict[str, object] = {}
         try:
             body = await request.json()
@@ -102,13 +105,22 @@ def build_target(*, vulnerable: bool) -> FastAPI:
             body = {}
         reason = str(body.get("reason", ""))
         if vulnerable:
-            # VULNERABLE: reflects the reason UNESCAPED (a stored-XSS / injection carrier).
+            # VULNERABLE: last write wins (7fbf995 — the first clinician's reason is erased) and
+            # the reason is reflected UNESCAPED (a stored-XSS / injection carrier).
+            rejected_reasons[fact_id] = reason
             return JSONResponse(status_code=200, content={"fact_id": fact_id, "reason": reason})
-        # FIXED: the persisted value is HTML-escaped before it is echoed or re-rendered.
+        # FIXED: the audit record is append-only — the first reason stands and a second reject
+        # conflicts rather than overwriting; the persisted value is HTML-escaped before it is
+        # echoed or re-rendered.
         import html as _html
 
+        if fact_id in rejected_reasons:
+            return JSONResponse(status_code=409, content={
+                "detail": "already rejected; audit reasons are append-only",
+                "reason": rejected_reasons[fact_id]})
+        rejected_reasons[fact_id] = _html.escape(reason)
         return JSONResponse(status_code=200,
-                            content={"fact_id": fact_id, "reason": _html.escape(reason)})
+                            content={"fact_id": fact_id, "reason": rejected_reasons[fact_id]})
 
     # Everything else fails closed in both builds (only the vulnerable routes differ).
     @app.api_route("/{path:path}", methods=["GET", "POST", "PATCH"])

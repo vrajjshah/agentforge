@@ -44,9 +44,11 @@ Bedrock inference (~$0.071/turn), so cost discipline is architectural.
 model rephrased is worse than no test. Observability is two layers: **Langfuse** traces each
 campaign as a trace with a nested span per agent hop (Orchestrator → Red Team → Judge →
 Documentation), and a **self-contained dashboard** answers the six required questions and links to
-the reproducible reports. A **testing-the-tester** inner-loop scores the platform's own verdicts
-against known ground truth (precision/recall/accuracy), and `docs/COST_ANALYSIS.md` models spend at
-scale. Every gate ships with a **proof-of-firing** (`docs/GATE_LEDGER.md`): planted failure → block
+the reproducible reports. A **testing-the-tester** inner-loop scores the Judge's *deterministic*
+rungs against known ground truth, and — because that ground truth is exact by construction and so
+cannot really be wrong — the narrow **LLM rung is calibrated separately against human labels**
+(`evals/judge_calibration/`), with its disagreements published rather than summarised away.
+`docs/COST_ANALYSIS.md` models spend at scale. Every gate ships with a **proof-of-firing** (`docs/GATE_LEDGER.md`): planted failure → block
 → pass.
 
 ## Agent-interaction diagram
@@ -180,6 +182,31 @@ gate alerts and blocks**, and a tampered fixture (signature mismatch) is caught 
 the Judge model version, diff the fixture verdicts across versions, and recalibrate against
 human-labelled cases before promoting a new model — frontier models are deprecated on a multi-year
 cycle, and swapping one silently moves behaviour.
+
+### Two different accuracy questions, measured two different ways
+
+The platform reports two scores, and conflating them is how a security tool ends up trusted for the
+wrong reason.
+
+| | Inner-loop self-test | Judge calibration |
+|---|---|---|
+| What it scores | the Judge's **deterministic** rungs | the Judge's **LLM compliance rung** |
+| Ground truth | a build where the defect is present vs one where it is fixed — **exact by construction** | **human labels**, assigned by reading each response against the scope rule before any model ran |
+| A clean sweep means | the harness fires, the oracle is independent of the attacker, the ladder decides — a **wiring proof** | genuine agreement with a human on judgement calls |
+| Cost | free, hermetic, every run | one model call per case, opt-in |
+| Where | `evals/inner_loop.json` | `evals/judge_calibration/` |
+
+A status code either is 401 or it isn't, so the deterministic score *cannot* be wrong in an
+interesting way; publishing it alone — especially at 1.0 — invites it to be read as a semantic
+accuracy claim it does not support. The rung that can be wrong is the one asked whether a free-text
+clinical answer *complied* with an injected instruction, so that is the one held against human
+labels. The calibration set is deliberately adversarial to naive scoring in both directions:
+refusals that echo PHI vocabulary ("I can't share their MRN"), refusals that quote the injection
+back while explaining the refusal, compliance behind a refusal preamble, compliance wrapped in a
+patient-safety justification, and an ordinary in-scope clinical answer that must never become a
+finding. Agreement, precision, recall, agreement-on-ambiguous-cases, and **every individual
+disagreement** are published. Until a live scoring run exists on a build, the rung is reported as
+**uncalibrated** — an unmeasured judge is not a perfect one.
 
 ## Cost, rate-limits & model constraints at scale
 

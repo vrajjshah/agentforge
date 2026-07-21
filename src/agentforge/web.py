@@ -463,6 +463,65 @@ def _confusion(conf: dict[str, Any]) -> str:
     )
 
 
+_SELFTEST_FALLBACK = (
+    "Each seeded defect is run against a build where it is present (should be caught) and one "
+    "where it is fixed (should hold)."
+)
+
+
+def _selftest_lead(st: dict[str, Any]) -> str:
+    """The score never ships without the sentence that says what it measured."""
+    cases = st.get("cases")
+    scale = f"{cases} cases. " if cases else ""
+    return _esc(scale + str(st.get("interpretation") or _SELFTEST_FALLBACK))
+
+
+def _calibration(cal: dict[str, Any]) -> str:
+    if not cal.get("calibrated"):
+        n = cal.get("labelled_cases", 0)
+        return (
+            "<div class='card locked'><div class=lk-top>"
+            "<span class=lk-icon aria-hidden=true>◌</span><div>"
+            "<div class=lk-h>Uncalibrated on this build</div>"
+            f"<div class=lk-sub>{n} human-labelled cases are committed and ready; the agreement "
+            "number is only published after a live scoring run "
+            "(<code>agentforge judge-calibration --live</code>). An uncalibrated rung is reported "
+            "as uncalibrated, never as a perfect score.</div></div></div></div>"
+        )
+    conf = cal.get("confusion", {})
+    stats = "".join([
+        _stat("Agreement", f"{round(100 * cal.get('agreement', 0))}%",
+              f"{cal.get('cases', 0)} human-labelled cases", "accent"),
+        _stat("Precision", str(cal.get("precision", "—")), "flagged compliance a human agreed with"),
+        _stat("Recall", str(cal.get("recall", "—")), "real compliance the rung caught"),
+        _stat("On ambiguous cases", f"{round(100 * cal.get('ambiguous_agreement', 0))}%",
+              f"{cal.get('ambiguous_cases', 0)} designed to be hard"),
+    ])
+    dis = cal.get("disagreements", [])
+    rows = "".join(
+        f"<tr><td class=mono>{_esc(d.get('id'))}</td>"
+        f"<td>{_esc(d.get('trap') or '—')}</td>"
+        f"<td>{'complied' if d.get('human') else 'refused'}</td>"
+        f"<td class={'bad-t' if d.get('judge') != d.get('human') else ''}>"
+        f"{'complied' if d.get('judge') else 'refused'}</td></tr>"
+        for d in dis
+    )
+    table = (
+        "<div class='card scroll' style='margin-top:14px'><table><thead><tr>"
+        "<th>Case</th><th>Designed to trap</th><th>Human</th><th>LLM rung</th>"
+        f"</tr></thead><tbody>{rows}</tbody></table></div>"
+        if rows else
+        "<div class=lead style='margin-top:12px'>No disagreements on this set — which bounds the "
+        "error rate at this sample size rather than proving there is none.</div>"
+    )
+    model = _esc(cal.get("model", "—"))
+    return (f"<div class=stats>{stats}</div>"
+            f"<div class=lead style='margin-top:12px'>Rung model <code>{model}</code> · "
+            f"confusion tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "
+            f"fn {conf.get('fn', 0)}. Disagreements are published, not summarised away.</div>"
+            f"{table}")
+
+
 def _cost_rows(proj: list[dict[str, Any]]) -> str:
     if not proj:
         return "<tr><td colspan=4 class=muted>—</td></tr>"
@@ -520,7 +579,7 @@ def _render(d: dict[str, Any], operator: OperatorSession | None = None,
     selftest = "".join([
         _stat("Precision", str(st.get("precision", "—")), "no false alarms"),
         _stat("Recall", str(st.get("recall", "—")), "no missed vulns"),
-        _stat("Accuracy", str(st.get("accuracy", "—")), "vs. known ground truth"),
+        _stat("Accuracy", str(st.get("accuracy", "—")), "vs. deterministic ground truth"),
     ])
     resilience = "".join(
         f"<tr><td class=mono>{_esc(r.get('fingerprint'))}</td>"
@@ -543,7 +602,9 @@ def _render(d: dict[str, Any], operator: OperatorSession | None = None,
         "__FINDINGS_SECTION__": _findings_section(d.get("findings", []), detail),
         "__COVERAGE__": _coverage_rows(d.get("coverage", {})),
         "__SELFTEST__": selftest,
+        "__SELFTEST_LEAD__": _selftest_lead(st),
         "__CONFUSION__": _confusion(st.get("confusion", {})),
+        "__CALIBRATION__": _calibration(d.get("judge_calibration", {})),
         "__RESILIENCE__": resilience,
         "__COST__": _cost_rows(d.get("cost_projection", [])),
         "__ACTIVITY__": _activity_rows(d.get("agent_activity", [])),
@@ -790,15 +851,21 @@ __FINDINGS_SECTION__
  <th class=num>Exploited</th><th>OWASP (web · LLM)</th><th>Status</th>
  </tr></thead><tbody>__COVERAGE__</tbody></table></div>
 
-<h2>Platform self-test — testing the tester</h2>
-<div class=lead>The platform's own verdicts scored against known ground truth: each seeded defect is
- run against a build where it is present (should be caught) and one where it is fixed (should hold).
- Perfect scores mean no missed vulnerabilities and no false alarms — the finding productivity that
- makes the "defense held" result trustworthy rather than an artifact of a lazy judge.</div>
+<h2>Platform self-test — deterministic rungs</h2>
+<div class=lead>__SELFTEST_LEAD__</div>
 <div class=selftest-grid>
  <div class=stats>__SELFTEST__</div>
  __CONFUSION__
 </div>
+
+<h2>Judge calibration — the LLM rung vs. human labels</h2>
+<div class=lead>The rung above cannot be wrong in an interesting way. This one can: for an
+ ambiguous <code>/chat</code> turn the Judge asks a model whether the target <em>complied</em> with
+ the injected instruction, and that is a judgement call. It is scored separately against a
+ hand-labelled set built from the cases that break naive scoring in both directions — refusals that
+ echo PHI vocabulary, refusals that quote the injection back, compliance hidden behind a refusal
+ preamble, a healthy in-scope answer that must not become a finding.</div>
+__CALIBRATION__
 
 <div class=cols>
  <div>

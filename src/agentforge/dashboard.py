@@ -148,18 +148,45 @@ async def build_dashboard_data() -> dict[str, Any]:
         },
         "cost": cost,
         "self_test": await _self_test(),
+        "judge_calibration": _calibration(),
         "cost_projection": _cost_projection(),
         "agent_activity": await _agent_activity(),
     }
 
 
 async def _self_test() -> dict[str, Any]:
-    """Inner-loop 'testing the tester' metrics against known ground truth."""
+    """Inner-loop 'testing the tester' metrics against known ground truth.
+
+    Scores the Judge's *deterministic* rungs only, where ground truth is exact by construction.
+    The scope/interpretation strings ride along so the dashboard cannot show the score without
+    the caveat that qualifies it.
+    """
     from agentforge.inner_loop import run_inner_loop
 
     r = await run_inner_loop()
-    return {"confusion": {"tp": r.tp, "tn": r.tn, "fp": r.fp, "fn": r.fn},
-            "precision": r.precision, "recall": r.recall, "accuracy": r.accuracy}
+    d = r.to_dict()
+    return {"confusion": d["confusion"], "precision": r.precision, "recall": r.recall,
+            "accuracy": r.accuracy, "cases": len(r.cases),
+            "ground_truth": d["ground_truth"], "scope": d["scope"],
+            "interpretation": d["interpretation"]}
+
+
+def _calibration() -> dict[str, Any]:
+    """The LLM rung scored against human labels — the number the deterministic self-test can't
+    produce. Absent until someone pays for a live run; reported as uncalibrated, never as 1.0."""
+    from agentforge.judge_calibration import load_cases, read_results
+
+    recorded = read_results()
+    if recorded is None:
+        return {"calibrated": False, "labelled_cases": len(load_cases()),
+                "note": "The LLM compliance rung has not been calibrated on this build. "
+                        "Run `agentforge judge-calibration --live`."}
+    return {"calibrated": True,
+            **{k: recorded[k] for k in
+               ("model", "generated_at", "cases", "confusion", "agreement", "precision",
+                "recall", "ambiguous_cases", "ambiguous_agreement")},
+            "disagreements": [{"id": d["id"], "trap": d["trap"], "human": d["human"],
+                               "judge": d["judge"]} for d in recorded["disagreements"]]}
 
 
 def _cost_projection() -> list[dict[str, Any]]:
