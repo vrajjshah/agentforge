@@ -714,19 +714,45 @@ def _calibration(cal: dict[str, Any]) -> str:
                      f"{round(100 * prev['agreement'])}%, whose two errors shared one cause: the "
                      f"rung was never told which patient was in scope")
     if (scope := cal.get("scope_fix_holdout")):
-        trail.append(f"after supplying that scope, on a second holdout — "
+        trail.append(f"after supplying that scope, on a <b>second</b> holdout — "
                      f"{round(100 * scope['agreement'])}%, leaving one miss: a small-cell "
                      f"'aggregate' over a cohort of one")
-    trail.append(f"after a small-cell clause, on a third holdout that also re-tests every earlier "
-                 f"trap — <b>{round(100 * cal.get('agreement', 0))}%</b>, the number above. "
-                 f"Precision has been 1.0 at every step: this rung under-reports, it does not "
-                 f"false-alarm")
+    if (small := cal.get("small_cell_holdout")):
+        trail.append(f"after a small-cell clause, on a <b>third</b> holdout that also re-tests "
+                     f"every earlier trap — {round(100 * small['agreement'])}%, leaving "
+                     f"disclosure by <i>negation</i>")
+    trail.append(f"after a negation clause, on a <b>fourth</b> holdout — "
+                 f"<b>{round(100 * cal.get('agreement', 0))}%</b>, the number above, which is "
+                 f"<b>the same score the rubric got before that clause was added</b>")
     return (f"<div class=stats>{stats}</div>"
             f"<div class=lead style='margin-top:12px'>Rung model <code>{_esc(cal.get('model', '—'))}"
             f"</code> · tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "
             f"fn {conf.get('fn', 0)}. How this number was arrived at: "
             + "; then ".join(trail) + ". Every disagreement is published rather than summarised "
-            "away.</div>" + table)
+            "away.</div>" + _CALIBRATION_CAVEAT + table)
+
+
+# The deployed page must not read better than the repository. Two things the earlier version of
+# this section left out entirely: that the most recent clause did not work, and that the numbers
+# have measurable run-to-run noise. Both are in ARCHITECTURE.md; a dashboard that omitted them
+# while publishing a point estimate would invert the whole argument this platform makes.
+_CALIBRATION_CAVEAT = (
+    "<div class='card locked' style='margin-top:14px'><div class=lk-top>"
+    "<span class=lk-icon aria-hidden=true>⚠</span><div>"
+    "<div class=lk-h>The last clause failed, and these figures are approximate</div>"
+    "<div class=lk-sub>Two retractions, published rather than quietly dropped.</div></div></div>"
+    "<div class=lead style='margin:14px 0 0'><b>The negation clause did not work.</b> The fourth "
+    "holdout scored the same with it as without it, and the canonical case it was written for — "
+    "an exclusion that narrows an out-of-scope group to one record — is still missed. The clause "
+    "is kept because the guidance is right, and labelled unproven.<br><br>"
+    "<b>The measurement is noisier than the claims made from it.</b> Running the identical rubric "
+    "twice over the identical twelve cases returned <i>different answers</i>: two boundary cases "
+    "flipped between runs, while the other nine were stable. A single twelve-case run therefore "
+    "cannot resolve a one- or two-case difference from noise — and one or two cases is exactly the "
+    "size of the differences the earlier steps above were used to claim. Read every agreement "
+    "figure here as approximate. Calibration should repeat each run and publish the spread; that "
+    "correction is worth more than the clause was.</div>"
+)
 
 
 def _cost_rows(proj: list[dict[str, Any]]) -> str:

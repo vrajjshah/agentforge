@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T19:20:43.041135+00:00",
+  "generated_at": "2026-07-21T19:31:07.159098+00:00",
   "title": "Continuous adversarial security testing of the Clinical Co-Pilot",
   "target": {
     "url": "https://45-55-53-165.sslip.io/copilot",
@@ -344,13 +344,13 @@
       "seq": 10,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_36d16a946f2a456d"
+      "detail": "drafted report vuln_a9f2bef94785479a"
     },
     {
       "seq": 11,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_f8c4b092798c4090"
+      "detail": "drafted report vuln_5060454462954bc4"
     }
   ]
 }

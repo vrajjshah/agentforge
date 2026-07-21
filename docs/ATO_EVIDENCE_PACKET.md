@@ -75,9 +75,16 @@ table: `docs/GATE_LEDGER.md` (27 controls).
 
 **Assessment of the assessor.** Unusually for a packet like this, the tool's own accuracy is
 measured rather than asserted: the deterministic rungs against exact ground truth
-(`evals/inner_loop.json`), and the LLM rung against **human labels on a held-out set** — 0.917
-agreement, 1.0 precision, with every disagreement published
-(`evals/judge_calibration/`). A scanner whose error rate is unknown cannot support a control claim.
+(`evals/inner_loop.json`), and the LLM rung against **human labels on held-out sets** — currently
+**0.833 agreement, 1.0 precision**, with every disagreement published (`evals/judge_calibration/`).
+
+Two caveats are published with it rather than omitted, because a control claim resting on an
+unqualified number is the thing this packet exists to prevent: the most recent rubric clause
+**did not work** (same score with and without it), and the measurement carries **run-to-run
+variance of about two cases on a twelve-case set** — the same magnitude as the differences earlier
+figures were used to claim. The figures are approximate and are labelled as such on the dashboard.
+A scanner whose error rate is unknown cannot support a control claim; one whose error rate is known
+*and noisy* supports a correspondingly narrower one.
 
 ## 4. Residual risks accepted
 
@@ -86,7 +93,7 @@ agreement, 1.0 precision, with every disagreement published
 | R1 | **Concurrency/idempotency has zero live coverage.** Its only route is a chart write, which `--safe-live` refuses to fire at a live clinical system. | Covered against the ephemeral build with fix-validation. Not firing writes at a live clinical system is the correct trade. | A staging target that is safe to write to |
 | R2 | **Cross-scope writes by an authorized key holder are not detectable.** Indistinguishable from a legitimate write in an HTTP response. | Stated boundary, not a silent gap (`THREAT_MODEL.md`). The platform asserts only the property it can prove: at most one success per record. | A patient-scope oracle from the target |
 | R3 | ~~The newest surface is untested~~ — **closed**. Reconciliation answered 502 to every id the sweep tried. Diagnosed, fixed (`fix/reconciliation-502`), re-validated live. | The platform mis-attributed the cause (reported an unavailable upstream; the upstream was healthy and the 502s came from non-resolving ids). Verdict rule renamed to `no-usable-response` so it states what was observed, not a guess at why. | Re-opens if 5xx returns on that route |
-| R4 | **Judge LLM rung has a named blind spot.** Accepts an "aggregate" over a cohort of size one (small-cell disclosure). | One case in 12, direction known, precision unaffected. Fix needs a fresh holdout to measure honestly. | Before relying on the rung for automated remediation |
+| R4 | **Judge LLM rung has a named blind spot** (disclosure by negation) **and a measured noise floor** of ~2 cases on a 12-case set. | Direction is known and precision is unaffected across all four runs. A clause targeting it was tried and produced no measurable improvement, so it is labelled unproven rather than claimed. | Before relying on the rung for automated remediation. Order: repeat runs + published spread, then a larger set, then a new holdout |
 | R5 | **Break-glass is a shared secret.** One token, no per-operator attribution. | Deliberate: the alternative is an ungated console when the IdP is down. Every use is audited, and clearing the variable revokes all sessions instantly. | Once OIDC login works end-to-end |
 | R6 | **CI has never executed.** No runner is attached to the project. | Labelled as not a gate rather than counted as one; the pre-push hook is the enforced gate. | A runner attached |
 | R7 | **In-process session store.** Sessions do not survive a redeploy and do not share across replicas. | Single replica; a redeploy forcing re-authentication is an acceptable failure mode. | Horizontal scale-out |

@@ -2,7 +2,7 @@
 
 These are not static payloads — they are *seeds* the Red Team mutates. Each carries known
 ground truth (the defect it maps to), so the Judge has a calibrated oracle and the regression
-harness has real drills. Four of the eight are already fixed on the deployed HEAD, so the
+harness has real drills. Six of the eight are already fixed on the deployed HEAD, so the
 canonical run reads "defense held" — the killer demo re-introduces one on a throwaway build to
 show the full discover→confirm loop on a live vuln.
 """

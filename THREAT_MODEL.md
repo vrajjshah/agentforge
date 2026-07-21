@@ -31,7 +31,7 @@ assumed the guard held. That is precisely the failure a human reviewing a screen
 the reason an automated, repeatable red team earns its place.
 
 **How the platform prioritizes coverage.** Each cell is (category × subcategory × auth-mode ×
-role). The Orchestrator picks the **least-covered** cell first, and, because four of the six named
+role). The Orchestrator picks the **least-covered** cell first, and, because six of the eight named
 defects are already **fixed on the deployed HEAD**, weights toward genuinely *unprobed* surface
 (multi-turn injection, tool misuse, the API-key cross-patient capability that is a documented
 *design* property). Verdicts are deterministic-first: a cross-patient leak is a static boolean
@@ -138,6 +138,40 @@ state-corruption checks assert only the property they can prove: **at most one s
 record** across a raced, retried, or repeated sequence. Catching cross-scope writes needs a
 patient-scope oracle from the target (which record was actually touched), not a response body —
 the same shape of limit as the iframe→host DOM escape needing a `BrowserTargetAdapter`.
+
+### Finding: the OIDC discovery document advertises an endpoint that does not exist
+
+Surfaced by this platform's own SSO integration against the target's auth layer, which is the only
+reason it was found — no attack sweep would have looked.
+
+`OAuth2DiscoveryController` publishes `"userinfo_endpoint": "$base_url/userinfo"` in
+`/.well-known/openid-configuration`. **The route was never implemented.**
+`GET /oauth2/default/userinfo` returns **404**, byte-identical to a path that does not exist, and
+`OAuth2DiscoveryController` is the only file in the codebase that mentions `userinfo` at all.
+
+| | |
+|---|---|
+| **Severity** | **Low** — conformance, not exploitable. No data exposure, no authorization impact |
+| **OWASP** | A05:2021 Security Misconfiguration (web) · n/a (LLM) |
+| **Standard** | OpenID Connect Core 1.0 §5.3 — a published `userinfo_endpoint` is expected to serve claims |
+| **Status** | **Open.** Reported, deliberately not fixed before submission |
+
+**Impact.** Discovery exists so a client can configure itself from the issuer. Any conformant client
+that follows it will issue a request that always fails. Ours did: the AgentForge dashboard called
+userinfo to resolve an operator's display name, got a 404, and fell back — which is why the console
+shows a subject-derived label instead of a name. A client with a less forgiving implementation would
+have failed the login outright on a document the issuer itself published.
+
+**Fix, when it is picked up.** Implement the route rather than remove the advertisement. The claims
+already exist and are already assembled: `UserEntity::getClaims()` builds `name`, `family_name`,
+`given_name`, `preferred_username` and `email` from `UuidUserAccount`, and nothing on the
+authorization-code flow ever calls it. The work is bearer-token validation plus returning claims
+that are already there — and it fixes the display name for **every** user and **every** OIDC client
+rather than one hardcoded subject.
+
+**Why it is not fixed here.** It is a change to a live EMR's authentication layer, and SSO works
+today. Touching that path immediately before submission trades a working login for a cosmetic label,
+which is the wrong trade at this point in the week. Recorded as a finding, scheduled after.
 
 ### Known operational weak points
 

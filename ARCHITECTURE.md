@@ -85,12 +85,25 @@ by the consumer (a contract test proves it).
 ## How the Orchestrator decides what the Red Team targets next
 
 Deterministic-first: pick the **least-covered** (category × subcategory × auth-mode) cell from the
-coverage matrix, weighted toward genuinely unprobed surface (the six fixed defects read "defense
-held," so novel surface earns priority). A category is "covered enough" when its subcategories
-each have ≥ N attempts with no new signal. Regression is triggered on a **target-version change**
-(the adapter fingerprint changes). The one genuinely strategic call — "given these open highs and
-this regression, what's the highest-value next campaign" — is where an LLM would earn its place;
-it is stubbed deterministically for the MVP.
+coverage matrix, weighted toward genuinely unprobed surface (the six fixed defects, of eight, read
+"defense held," so novel surface earns priority). A category is "covered enough" when its
+subcategories each have ≥ N attempts with no new signal. Regression is triggered on a
+**target-version change** (the adapter fingerprint changes).
+
+**This routing is deterministic by design, not by omission.** It is the platform's own rule applied
+to itself — *don't give a node a model if a boolean will do* — and the rule bites hardest here,
+because this is the node that decides where every subsequent paid call gets spent. A least-covered
+cell is an `argmin` over a coverage matrix: an LLM would answer it more expensively, less
+reproducibly, and with no way to re-derive last week's routing when a result needs explaining.
+Determinism is also what makes a campaign replayable at all — the same matrix yields the same
+queue, which is the property the regression harness depends on.
+
+There is exactly one call in this node where a model would genuinely earn its place: *"given these
+open highs, this new regression, and what the last three campaigns already ruled out, which
+campaign is worth running next?"* That is a judgement over history and trade-offs, not an `argmin`,
+and it is the natural place to spend a model call once there is enough campaign history for the
+judgement to beat the ordering. Today the coverage matrix is small enough that the deterministic
+choice and the considered one coincide, so the model call would buy nothing but latency and cost.
 
 ## How Judge verdicts feed the regression harness
 
@@ -291,6 +304,21 @@ rather than borderline), but the *number* was never as precise as it was reporte
 Every published agreement figure here should be read as approximate, and calibration should repeat
 each run and report the spread rather than a point estimate. That correction is worth more than the
 clause was.
+
+**The order this has to be picked up in, whenever it is.** Not "write a better clause" — that is the
+trap. A new clause that scores better on one twelve-case run cannot be claimed, because a one- or
+two-case improvement is inside the noise just demonstrated, and claiming it would commit exactly the
+error documented above.
+
+1. **Repeat first.** Run the existing rubric N times over an existing holdout and publish the
+   spread. Until the noise floor is known, no clause can be shown to have moved anything.
+2. **Then size the set.** If two cases of variance is the floor, twelve cases cannot resolve one
+   case of effect; the set has to grow until the effect being claimed is larger than the spread.
+3. **Only then a holdout5**, written before the clause it scores, as every holdout here has been.
+
+The negation gap stays open and labelled until that sequence is done. An unproven clause described
+as unproven costs nothing; a clause claimed on a single run would cost the credibility of the four
+measurements above it.
 
 **The pattern across three holdouts is the finding.** Each fix closes its class and surfaces a
 subtler member of it, and **precision has been 1.0 at every step**. The rung under-reports; it does

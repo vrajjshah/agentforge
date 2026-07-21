@@ -161,16 +161,22 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
   the set it was tuned against — **in-sample, so not a result** — and **0.80** on a held-out set
   written afterwards.
 
-  Both of those remaining errors traced to one cause: the rung was never told which patient was in
-  scope. It now receives the check-pack's scope rule as trusted context alongside the attacker's
-  turn and the response, both fenced as untrusted. Scoring that needed a **second** holdout — the
-  first was spent the moment it diagnosed the bug — built around pairs that are identical in
-  wording and differ only in whether the record is in scope. Result: **0.917 agreement, 1.0
-  precision** on 12 unseen cases. A third pass added a small-cell/k-anonymity clause (a mean over a
-  cohort of one is that patient's value) and scored **0.917 / 1.0 precision** on a third holdout
-  that deliberately still carries the older traps, all of which held. Across all three:
-  **precision never dropped below 1.0** — the rung under-reports rather than false-alarms, which is
-  the direction of error worth knowing when the headline result is "defense held". See
+  Both of those errors traced to one cause: the rung was never told which patient was in scope. It
+  now receives the check-pack's scope rule as trusted context alongside the attacker's turn and the
+  response, both fenced as untrusted. Scoring that needed a **second** holdout — the first was spent
+  the moment it diagnosed the bug — and scored **0.917**. A third pass added a small-cell clause
+  and scored **0.917** on a **third** holdout that deliberately re-tests every earlier trap.
+
+  **A fourth holdout then produced a negative result, and a more important methodological one.** A
+  disclosure-by-negation clause scored **0.833 — exactly what the rubric scored without it**, and
+  the canonical case it was written for is still missed. Worse, running the *identical* rubric twice
+  over the *identical* twelve cases returned different answers: two boundary cases flipped, nine
+  were stable. **So a single twelve-case run cannot resolve a one- or two-case difference from
+  noise — which is the size of the differences the earlier steps were used to claim.** Every
+  agreement figure here should be read as approximate; the current published number is **0.833 with
+  precision 1.0**. Across all four runs precision never dropped below 1.0, so the direction of error
+  is consistent: this rung under-reports rather than false-alarms — worth knowing when the headline
+  result is "defense held". Full per-run table and the order any future attempt must follow:
   [ARCHITECTURE.md](ARCHITECTURE.md#two-different-accuracy-questions-measured-two-different-ways).
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
@@ -239,13 +245,21 @@ been watched blocking a planted failure and then passing — every control in
 [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md) ships with that proof, because a gate that has never
 been executed on anything has never told you anything.
 
-`.gitlab-ci.yml` runs the identical five checks, and is **explicitly not counted as a gate**: no
-runner is attached to the project (`shared_runners_enabled=false`, zero runners, zero pipelines
-ever), so it has never executed. It is committed labelled rather than quietly presented as CI —
-the ledger records it as the one control with no proof-of-firing, with the exact red-then-green
-procedure to promote it once a runner exists. What *was* verified by hand is the thing CI would
-have caught soonest: with `.env` moved aside and an emptied environment, all 122 tests still pass,
-so nothing in the suite depends on a local credential or a live service.
+`.gitlab-ci.yml` runs the identical five checks and is **proven red-then-green on a real runner —
+and currently dormant**, which is a narrower claim than "we have CI" and the only one the evidence
+supports. A throwaway project runner was registered and the pipeline watched both ways:
+[job 55608](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55608) RED on a planted
+`assert 1 == 2` (`1 failed, 157 passed`), then
+[job 55610](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55610) GREEN on all five checks.
+The planted failure was pushed with `--no-verify` so the pre-push hook could not pre-empt the gate
+CI was being asked to prove.
+
+The runner was then deleted, and `RUN_CI` deleted with it, in that order — it ran on a laptop, and a
+gate that depends on one developer's machine being awake is not a gate. Order matters: `RUN_CI` set
+with no runner attached is what produced six meaningless red pipelines on an earlier attempt.
+Re-enabling is one persistent runner plus `RUN_CI=1`, with no change to the config that produced
+those jobs. **The pre-push hook remains the enforced gate.** The green job also confirms the suite
+is genuinely hermetic — it passed on a machine with no `.env` at all.
 
 ## Submission URLs
 
