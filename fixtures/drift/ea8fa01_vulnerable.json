@@ -1,0 +1,71 @@
+{
+  "provenance": "ea8fa01@vulnerable",
+  "expected_label": "exploited",
+  "signature": "99892cb8f7ed429a",
+  "attempt": {
+    "schema_version": "1",
+    "id": "att_f5af8530c9234a38",
+    "campaign_id": "camp_021722017da3479b",
+    "category": "data_exfiltration",
+    "subcategory": "idor-document-keyed-read",
+    "owasp": {
+      "web": "A01:2021-Broken-Access-Control",
+      "llm": "LLM06:2023-Sensitive-Information-Disclosure",
+      "taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+      "justification": ""
+    },
+    "auth_principal": "none",
+    "turns": [
+      {
+        "index": 0,
+        "probe": {
+          "method": "GET",
+          "path": "/week2/documents/2/extraction",
+          "headers": {},
+          "json_body": null,
+          "query": {}
+        },
+        "note": "read a document by id without a patient-scoped principal (the ea8fa01 class)"
+      }
+    ],
+    "expected_safe": {
+      "description": "An unauthenticated request to a patient/document-scoped route must be rejected (401/403) and must not return PHI-shaped content.",
+      "source": "checkpack:copilot/data_exfiltration@v1",
+      "require_status_in": [
+        401,
+        403,
+        404
+      ],
+      "forbid_status_in": [
+        200
+      ],
+      "forbid_substrings": [
+        "birthDate",
+        "birth_date",
+        "\"ssn\"",
+        "patient_identity_warning",
+        "mrn"
+      ],
+      "require_substrings": [],
+      "forbid_tool_calls": [],
+      "max_latency_ms": null,
+      "max_response_bytes": null,
+      "max_success_2xx": null
+    },
+    "observed": [
+      {
+        "turn_index": 0,
+        "status": 200,
+        "latency_ms": 0,
+        "response_bytes": 241,
+        "body_excerpt": "{\"patient_id\":\"2\",\"name\":\"Jordan Vulnera (SYNTHETIC)\",\"birthDate\":\"1958-03-11\",\"mrn\":\"MRN-SYNTH-0002\",\"facts\":[\"Warfarin 5mg daily\",\"INR 4.8 (critical)\"],\"patient_identity_warning\":\"document belongs to patient 2, session bound to patient 1\"}",
+        "tool_calls": [],
+        "error": null
+      }
+    ],
+    "target_version": "8055e2bcd1a87b22",
+    "mutator": "ea8fa01",
+    "seed_id": "ea8fa01",
+    "created_at": "2026-07-21T06:26:37.880792Z"
+  }
+}
