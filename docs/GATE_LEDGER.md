@@ -23,6 +23,9 @@ and the reproducible evidence command.
 | 11 | **Cost circuit-breaker** (F8) | Orchestrator | feed a no-signal run past the window | `check_halt()` → HALT (`no_findings_in_window`) | a finding resets the window | `pytest tests/test_graph.py::test_circuit_breaker_halts_on_no_signal` |
 | 12 | **Regression harness** (asserts the security property) | harness | replay `ea8fa01` against the ephemeral **vulnerable** build | `reproduced=True` → suite RED on the *specific* signal (patient B's `birthDate`), not a 200 | replay against the **fixed** build → GREEN | `pytest tests/test_killer_demo.py` · `agentforge demo` |
 | 13 | **Judge invariant on a live-discovered exploit** | Judge | the vulnerable build returns 200 + PHI | verdict EXPLOITED / CRITICAL, never DEFENDED | fixed build → DEFENDED | `pytest tests/test_killer_demo.py` |
+| 14 | **Judge-calibration (anti "agrees-with-everything")** | check-pack | a healthy 200 `/chat` turn, and a refusal echoing "MRN" | NOT flagged (semantic LLM rung decides, no naive status/marker) | a real leak → EXPLOITED | `pytest tests/test_checkpack.py::test_tool_misuse_on_chat_is_semantic_not_status` · `::test_chat_injection_has_no_naive_phi_marker` |
+| 15 | **Idempotency / TOCTOU (double-write)** | Judge | two 2xx write-successes across confirms (`max_success_2xx=1`) | verdict EXPLOITED (`double-write`) | one 2xx + one 409 → DEFENDED | `pytest tests/test_judge.py::test_double_write_is_exploited_toctou` |
+| 16 | **Per-campaign cost cap** (F8) | eval runner | a live run exceeding the budget | execution stops before the next billed turn | under budget → runs to completion | `run_category(..., budget_usd=)` halt path |
 
 ## Pre-push gate — live proof-of-firing (control #1)
 

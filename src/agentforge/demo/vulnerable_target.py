@@ -56,6 +56,42 @@ def build_target(*, vulnerable: bool) -> FastAPI:
             return JSONResponse(status_code=401, content={"detail": "authentication required"})
         return JSONResponse(status_code=200, content={"page": page, **_PATIENT_B})
 
+    # Confirm-to-chart write — reproduces e0e7b6a (attribution forgery) and b5f4b1e (TOCTOU).
+    confirmed_ids: set[str] = set()
+
+    @app.post("/week2/confirm/{fact_id}")
+    async def confirm(fact_id: str, request: Request) -> JSONResponse:
+        forged = (
+            request.headers.get("X-User")
+            or request.headers.get("X-Forwarded-User")
+        )
+        body: dict[str, object] = {}
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        claimed = forged or body.get("confirmed_by") or body.get("actor")
+
+        if claimed:
+            # e0e7b6a: attribution forgery.
+            if vulnerable:
+                # VULNERABLE: honors the caller-claimed identity (forgeable by anyone with a key).
+                return JSONResponse(status_code=200, content={
+                    "fact_id": fact_id, "status": "confirmed",
+                    "confirmed_by": claimed, "attribution_source": "request (FORGED, honored)"})
+            # FIXED: identity is server-resolved; a body/header-claimed actor is rejected.
+            return JSONResponse(status_code=403, content={"detail": "forged attribution rejected"})
+
+        # b5f4b1e: TOCTOU / idempotency on a plain confirm.
+        if not vulnerable and fact_id in confirmed_ids:
+            # FIXED: atomic claim — a second confirm of an already-claimed fact conflicts.
+            return JSONResponse(status_code=409, content={"detail": "already confirmed"})
+        confirmed_ids.add(fact_id)
+        # VULNERABLE build never records the claim, so every concurrent/retried confirm succeeds.
+        if vulnerable:
+            confirmed_ids.discard(fact_id)
+        return JSONResponse(status_code=200, content={"fact_id": fact_id, "status": "confirmed"})
+
     # Everything else the eval touches fails closed in both builds (only the ea8fa01 route differs).
     @app.api_route("/{path:path}", methods=["GET", "POST", "PATCH"])
     async def catch_all(path: str) -> JSONResponse:

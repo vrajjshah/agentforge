@@ -114,6 +114,17 @@ def _deterministic_ladder(
     partial = False
     rule = "deterministic-safe"
 
+    # Idempotency/TOCTOU: too many successful writes across turns (b5f4b1e/c019314).
+    if policy.max_success_2xx is not None:
+        successes = sum(1 for r in responses if 200 <= r.status < 300)
+        if successes > policy.max_success_2xx:
+            exploited = True
+            rule = "double-write"
+            evidence.append(
+                f"{successes} turns returned a 2xx write-success (max allowed "
+                f"{policy.max_success_2xx}) — non-idempotent/raced write"
+            )
+
     for r in responses:
         if r.error:
             continue

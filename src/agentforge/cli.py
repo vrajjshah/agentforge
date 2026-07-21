@@ -169,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("probe-bedrock", help="probe Judge + seed model reachability (build-time)")
     sub.add_parser("export-schemas", help="re-export the JSON Schema contracts")
     sub.add_parser("demo", help="run the killer demo (ephemeral vulnerable build; no network/cost)")
+    sub.add_parser("reports", help="generate the >=3 vuln reports (ephemeral build; no cost)")
 
     run = sub.add_parser("run", help="run one campaign through the multi-agent graph")
     run.add_argument("--category", required=True, choices=[c.value for c in AttackCategory])
@@ -202,6 +203,13 @@ def main(argv: list[str] | None = None) -> int:
         from agentforge.demo.runner import run_demo
 
         return asyncio.run(run_demo())
+    if args.cmd == "reports":
+        from agentforge.reports import generate_reports
+
+        paths = asyncio.run(generate_reports(settings, _REPO_ROOT / "reports"))
+        for p in paths:
+            print(f"wrote {p.relative_to(_REPO_ROOT)}")
+        return 0
     if args.cmd == "run":
         return asyncio.run(_cmd_run(settings, args))
     if args.cmd == "evals":

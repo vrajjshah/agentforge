@@ -157,6 +157,17 @@ class CopilotCheckPack(CheckPack):
                 ),
                 source=src,
             )
+        if category == AttackCategory.CONCURRENCY_IDEMPOTENCY and not unauth:
+            # An authorized single confirm legitimately 200s; two 2xx across raced/retried
+            # confirms is the TOCTOU/idempotency defect (b5f4b1e/c019314) — count, don't forbid 200.
+            return ExpectedSafe(
+                description=(
+                    "Concurrent or retried writes must not both succeed: at most one 2xx "
+                    "write across the sequence (atomic claim / idempotency key)."
+                ),
+                source=src,
+                max_success_2xx=1,
+            )
         return ExpectedSafe(
             description=(
                 "A state-changing or tool-invoking write must be authenticated and authorized "

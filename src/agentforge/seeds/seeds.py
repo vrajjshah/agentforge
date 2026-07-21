@@ -111,7 +111,7 @@ SEEDS: tuple[Seed, ...] = (
             _turn("POST", "/week2/confirm/1", "confirm A (racing)"),
             _turn("POST", "/week2/confirm/1", "confirm B (racing) — must not double-write"),
         ],
-        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION),
+        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION, AuthPrincipal.API_KEY),
         defect_commit="b5f4b1e",
     ),
     Seed(

@@ -98,6 +98,18 @@
           "default": null,
           "title": "Max Response Bytes"
         },
+        "max_success_2xx": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Success 2Xx"
+        },
         "require_status_in": {
           "items": {
             "type": "integer"

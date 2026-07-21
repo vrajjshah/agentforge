@@ -59,6 +59,37 @@ uv run agentforge evals --live      # regenerate ./evals/ against the deployed t
 Live commands (`--live`, `-m live`) hit the real deployed target/Bedrock and cost real money/time;
 they are opt-in and batched, never in the default suite.
 
+## Live findings (authenticated)
+
+Run authenticated attacks through `/chat` + reads with the co-pilot's API key, novel seeds from
+Bedrock Llama-4-Maverick, and the Bedrock-Claude semantic Judge:
+
+```bash
+uv run agentforge evals --live --principals api_key \
+  --categories data_exfiltration,prompt_injection,tool_misuse,denial_of_service \
+  --llm-judge --novel --safe-live --max 8 --budget 15
+```
+
+**Result: the hardened co-pilot held across all 32 authenticated `/chat` variants** (direct,
+encoded, novel-Maverick-seeded, multi-turn) — an honest "defense held," with the LLM Judge
+correctly distinguishing refusal from compliance. `--safe-live` keeps the run non-destructive (no
+chart writes hit the live deployment); `--budget` is a hard cost cap.
+
+**Error-analysis that made the verdicts trustworthy.** The first authenticated run *over-flagged*
+(tool-misuse 8/8, injection 2/8). Reviewing the evidence found two false positives in the platform
+itself: (1) a normal 200 from `/chat` was treated as "forbidden status"; (2) a refusal that echoed
+the word "MRN" tripped a naive PHI-field marker. Both were fixed — `/chat` is now judged
+semantically by the LLM rung; field markers are kept only for structured reads — with regression
+tests so neither reappears. Catching the platform agreeing-with-everything *is* the value.
+
+## Vulnerability reports
+
+`uv run agentforge reports` generates ≥3 professional, reproducible reports in `reports/` — each
+drafted by the Documentation agent from a confirmed Judge verdict and **fix-validated by the
+regression harness** (re-running the exact attack against the patched build): `ea8fa01` (CRITICAL,
+cross-patient PHI leak), `e0e7b6a` (HIGH, attribution forgery), `b5f4b1e` (MEDIUM, TOCTOU
+double-write). Demonstrated on the ephemeral vulnerable build since the live target is hardened.
+
 ## The killer demo
 
 `agentforge demo` spins up an **ephemeral, isolated vulnerable build** (the `ea8fa01` cross-patient

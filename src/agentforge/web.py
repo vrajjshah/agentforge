@@ -29,8 +29,15 @@ _settings = Settings.from_env()
 
 
 def _coverage() -> dict[str, Any]:
-    path = _EVALS / "coverage_matrix.json"
-    return json.loads(path.read_text()) if path.exists() else {"coverage_matrix": {}}
+    # Prefer the richer authenticated /chat coverage; fall back to the unauth boundary run.
+    for rel in ("authenticated/coverage_matrix.json", "coverage_matrix.json"):
+        path = _EVALS / rel
+        if path.exists():
+            data: dict[str, Any] = json.loads(path.read_text())
+            data["surface"] = ("authenticated /chat + reads (API key)"
+                               if "authenticated" in rel else "unauthenticated boundary")
+            return data
+    return {"coverage_matrix": {}}
 
 
 @app.get("/health")
@@ -99,6 +106,7 @@ async def dashboard() -> HTMLResponse:
         version=cov.get("target_version", "—"),
         taxonomy=cov.get("taxonomy_version", "—"),
         generated=cov.get("generated_at", "—"),
+        surface=cov.get("surface", "—"),
         categories=cov.get("categories_tested", len(matrix)),
         rows="".join(rows) or "<tr><td colspan=8>no eval data yet</td></tr>",
     )
@@ -131,7 +139,7 @@ _DASHBOARD_HTML = """<!doctype html><html><head><meta charset=utf-8>
  <div class=card><div class=k>Target</div><div class=v>{target}</div></div>
  <div class=card><div class=k>Target fingerprint</div><div class=v>{version}</div></div>
  <div class=card><div class=k>Categories tested</div><div class=v>{categories}</div></div>
- <div class=card><div class=k>OWASP taxonomy</div><div class=v>{taxonomy}</div></div>
+ <div class=card><div class=k>Attack surface</div><div class=v>{surface}</div></div>
 </div>
 <table><thead><tr><th>Category</th><th>Total</th><th>Defended</th><th>Exploited</th>
  <th>Partial</th><th>OWASP web</th><th>OWASP LLM</th><th>Status</th></tr></thead>

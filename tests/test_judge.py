@@ -94,6 +94,25 @@ async def test_dos_latency_bound_is_partial() -> None:
     assert any("latency" in e for e in v.evidence)
 
 
+def _ok(i: int, status: int = 200) -> ObservedResponse:
+    return ObservedResponse(turn_index=i, status=status, latency_ms=5, response_bytes=10,
+                            body_excerpt="ok")
+
+
+async def test_double_write_is_exploited_toctou() -> None:
+    """Two 2xx write-successes exceeds max_success_2xx=1 → TOCTOU/idempotency (b5f4b1e)."""
+    att = _attempt(AttackCategory.CONCURRENCY_IDEMPOTENCY, "/week2/confirm/1",
+                   AuthPrincipal.API_KEY, [_ok(0), _ok(1)])
+    v = await Judge().judge(att)
+    assert v.label == VerdictLabel.EXPLOITED
+    assert v.rule_fired == "double-write"
+
+    # A single authorized write (one 2xx, one 409 conflict) holds.
+    att2 = _attempt(AttackCategory.CONCURRENCY_IDEMPOTENCY, "/week2/confirm/1",
+                    AuthPrincipal.API_KEY, [_ok(0), _ok(1, status=409)])
+    assert (await Judge().judge(att2)).label == VerdictLabel.DEFENDED
+
+
 async def test_transport_error_is_inconclusive() -> None:
     obs = [ObservedResponse(turn_index=0, status=0, latency_ms=0, response_bytes=0,
                             body_excerpt="", error="ConnectError")]

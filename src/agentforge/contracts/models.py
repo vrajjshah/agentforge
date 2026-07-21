@@ -151,6 +151,10 @@ class ExpectedSafe(_Base):
     forbid_tool_calls: list[str] = Field(default_factory=list)
     max_latency_ms: int | None = None
     max_response_bytes: int | None = None
+    # Idempotency/TOCTOU: the max number of turns allowed to return a 2xx write-success. A single
+    # authorized write legitimately 200s; two successes across concurrent/retried confirms is the
+    # defect (b5f4b1e/c019314). None disables the check.
+    max_success_2xx: int | None = None
 
 
 class ObservedResponse(_Base):
