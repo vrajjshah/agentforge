@@ -416,3 +416,37 @@ def test_header_never_shows_a_bare_uuid() -> None:
 
     named = claims_to_session({"sub": uuid, "name": "Administrator"})
     assert web._operator_label(named)[0] == "Administrator"
+
+
+# --- userinfo supplies the display name the id_token does not carry ---------------------------
+def test_userinfo_supplies_a_name_the_id_token_lacks() -> None:
+    """OpenEMR's id_token is aud/iss/iat/exp/sub/nonce only — no profile claims at all, which is
+    why the header had nothing but a uuid to show. userinfo fills the gap."""
+    session = claims_to_session(
+        {"sub": "a2348815-c7ae-4eea-bb78-34517eef9cee"},
+        {"given_name": "", "family_name": "Administrator", "email": "admin@emr.test"},
+    )
+    assert session.name == "Administrator"
+    assert session.email == "admin@emr.test"
+
+
+def test_userinfo_can_never_change_who_the_caller_is() -> None:
+    """The load-bearing rule: userinfo is unverified presentation detail. It may supply a label;
+    it may not supply the identity RBAC authorizes against."""
+    session = claims_to_session(
+        {"sub": "real-subject", "name": "Real Operator"},
+        {"sub": "attacker-subject", "fhirUser": "Practitioner/attacker", "name": "Evil"},
+    )
+    assert session.subject == "real-subject"       # from the signed id_token, not userinfo
+    assert session.name == "Real Operator"         # id_token wins where it has a value
+
+
+async def test_userinfo_failure_does_not_break_the_login() -> None:
+    """A cosmetic lookup must never fail an authentication."""
+    client = OidcClient(_cfg())
+    with respx.mock:
+        respx.get(_cfg().userinfo_url).mock(side_effect=httpx.ConnectError("down"))
+        assert await client.fetch_userinfo("token") == {}
+    with respx.mock:
+        respx.get(_cfg().userinfo_url).mock(return_value=httpx.Response(403))
+        assert await client.fetch_userinfo("token") == {}

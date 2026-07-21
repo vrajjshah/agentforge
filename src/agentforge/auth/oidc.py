@@ -89,6 +89,27 @@ class OidcClient:
             raise OidcError("token response has no id_token")
         return dict(payload)
 
+    async def fetch_userinfo(self, access_token: str) -> dict[str, Any]:
+        """Profile claims from the OIDC userinfo endpoint. Never fatal, never authoritative.
+
+        OpenEMR's id_token carries only the authentication assertion — aud/iss/iat/exp/sub/nonce
+        (``IdTokenSMARTResponse::getBuilder``) — so a display name is simply not in there, which is
+        exactly what userinfo is specified for. The id_token stays the sole source of the
+        *authorization* identity: ``sub`` is verified against the issuer's signature, and nothing
+        fetched here is allowed to change who the caller is. This supplies presentation detail
+        only, and a failure returns ``{}`` — a cosmetic lookup must never fail a login.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.get(self._cfg.userinfo_url,
+                                        headers={"Authorization": f"Bearer {access_token}"})
+            if resp.status_code != 200:
+                return {}
+            payload = resp.json()
+            return dict(payload) if isinstance(payload, dict) else {}
+        except (httpx.HTTPError, ValueError):
+            return {}
+
     def _signing_key(self, id_token: str) -> Any:
         """Resolve the issuer's signing key, tolerating a JWK Set published without a ``kid``.
 
@@ -169,8 +190,20 @@ class OidcClient:
         return dict(resp.json())
 
 
-def claims_to_session(claims: dict[str, Any]) -> OperatorSession:
-    """Map verified id_token claims to an OperatorSession (server-resolved identity)."""
+def claims_to_session(claims: dict[str, Any],
+                      profile: dict[str, Any] | None = None) -> OperatorSession:
+    """Map verified id_token claims to an OperatorSession (server-resolved identity).
+
+    ``profile`` is optional, unverified presentation detail from the userinfo endpoint. It may
+    only supply a display name and email; ``sub`` — the value RBAC authorizes against — is taken
+    from the verified id_token and never from here.
+    """
+    if profile:
+        # Presentation fields only, and only where the id_token left a gap.
+        claims = {**{k: v for k, v in profile.items()
+                     if k in ("name", "given_name", "family_name", "preferred_username", "email")
+                     and not claims.get(k)},
+                  **claims}
     # Whitespace-collapsed, because an IdP's idea of a full name is whatever its SQL produced:
     # OpenEMR builds this as CONCAT(fname, ' ', lname), so an account with no first name yields
     # " Administrator" — a leading space that renders straight into the page.

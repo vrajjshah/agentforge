@@ -302,7 +302,14 @@ async def callback(request: Request) -> Response:
         _log.warning("SSO callback: OIDC failure: %s", exc)
         _audit_auth("sso_callback", "oidc_failure", request, reason=str(exc)[:300])
         return HTMLResponse(_sso_unavailable(), status_code=400)
-    operator = claims_to_session(claims)
+    # OpenEMR's id_token carries the authentication assertion and nothing else — no name, no
+    # email — so the header had only `sub` to show, which is a uuid. userinfo is the endpoint
+    # specified for exactly this. Fetched only when the id_token left no human-readable claim,
+    # non-fatal, and strictly presentation: `sub` still comes from the verified token.
+    profile: dict[str, Any] = {}
+    if not any(claims.get(k) for k in ("name", "given_name", "family_name", "preferred_username")):
+        profile = await _oidc.fetch_userinfo(tokens.get("access_token", ""))
+    operator = claims_to_session(claims, profile)
     # The identity that was actually verified, recorded on BOTH outcomes.
     #
     # Deny-by-default RBAC has a bootstrapping problem: the allow-list must contain a value nobody

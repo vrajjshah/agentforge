@@ -39,6 +39,10 @@ class SsoConfig:
         return f"{self.issuer.rstrip('/')}/token"
 
     @property
+    def userinfo_url(self) -> str:
+        return f"{self.issuer.rstrip('/')}/userinfo"
+
+    @property
     def jwks_uri(self) -> str:
         return f"{self.issuer.rstrip('/')}/jwk"
 
