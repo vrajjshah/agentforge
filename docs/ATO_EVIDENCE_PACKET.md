@@ -31,6 +31,7 @@ database, the eval datasets and generated reports, and the deployed read-only da
 | AWS Bedrock | outbound HTTPS | attack payloads, delimited response evidence | One AWS BAA, `us-east-1`, bearer-token auth |
 | OpenEMR authorization server | outbound HTTPS | OIDC code exchange, JWKS | Endpoints derived from the configured issuer, never a caller-supplied value |
 | Langfuse Cloud | outbound HTTPS | trace metadata | PHI-masked before send; no-op without keys |
+| GitLab CI runner (id 192, on the target's droplet) | inbound: executes repository code | the branch under test | Docker executor, `privileged = false`, **no Docker socket mounted**, `volumes = ["/cache"]` only, runner locked to this project |
 
 **Explicitly out of scope:** client-side DOM attacks against the co-pilot's iframe embedding. They
 need a browser-driven adapter, and are documented as a limit rather than approximated with an HTTP
@@ -96,7 +97,8 @@ A scanner whose error rate is unknown cannot support a control claim; one whose 
 | R4 | **Judge LLM rung has a named blind spot** (disclosure by negation) **and a measured noise floor** of ~2 cases on a 12-case set. | Direction is known and precision is unaffected across all four runs. A clause targeting it was tried and produced no measurable improvement, so it is labelled unproven rather than claimed. | Before relying on the rung for automated remediation. Order: repeat runs + published spread, then a larger set, then a new holdout |
 | R5 | **Break-glass is a shared secret.** One token, no per-operator attribution. | Deliberate: the alternative is an ungated console when the IdP is down. Every use is audited, and clearing the variable revokes all sessions instantly. | Once OIDC login works end-to-end |
 | R6 | **CI has never executed.** No runner is attached to the project. | Labelled as not a gate rather than counted as one; the pre-push hook is the enforced gate. | A runner attached |
-| R7 | **In-process session store.** Sessions do not survive a redeploy and do not share across replicas. | Single replica; a redeploy forcing re-authentication is an acceptable failure mode. | Horizontal scale-out |
+| R7 | **The CI runner shares a host with the live target.** A self-hosted runner executes whatever code is in a branch, on the droplet that serves the demo. | Deliberate: "runs on every PR" cannot depend on a laptop being open, and this is the only always-on host available. Bounded by a non-privileged Docker executor with **no Docker socket mounted** (a socket mount would hand any CI job root-equivalent control of that host — a real exposure found and removed on the sibling runner), `concurrent = 1` so CI cannot starve the demo, and the runner locked to this project. Push access is the trust boundary. | A shared or public fork gaining push access; or any job needing Docker, which would reintroduce the socket question |
+| R8 | **In-process session store.** Sessions do not survive a redeploy and do not share across replicas. | Single replica; a redeploy forcing re-authentication is an acceptable failure mode. | Horizontal scale-out |
 
 ## 5. Recommendation
 
