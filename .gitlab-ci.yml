@@ -80,6 +80,18 @@ gate:
     - uv run pytest
     - uv run bandit -q -r src
     - uv run pip-audit
-  rules:
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
+# No job-level `rules:` here, deliberately. This job carried
+#   rules: [ if: $CI_COMMIT_BRANCH, if: $CI_MERGE_REQUEST_IID ]
+# which is NARROWER than the workflow rule above, and that gap is a hole. A tag pipeline sets
+# neither variable, so no job matched — and GitLab does not raise "no jobs", it declines to create
+# the pipeline at all. Probed on tag `ci-probe-before`: zero pipelines, no error, no notification.
+# Tagging a release would have run nothing while looking exactly like a repo with a green gate.
+#
+# Found by the sibling OpenEMR repo hitting the same class of bug from the other direction: there
+# `golden-gate` was rule-restricted while `lint` and `security` were not, so a manually-triggered
+# pipeline ran two of three jobs and reported success — a green badge with the test suite missing.
+# Same root cause, opposite symptom, and neither was caught by the thing meant to catch it.
+#
+# The invariant, now that it is the only rule: if a pipeline exists at all, the gate runs in it.
+# Coverage is decided in exactly one place (`workflow:` above), so there is no second place for the
+# two to drift apart.
