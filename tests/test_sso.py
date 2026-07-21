@@ -131,6 +131,24 @@ def test_verify_rejects_forged_signature(rsa_keys: tuple[Any, Any]) -> None:
 
 
 # --- token exchange (respx) ------------------------------------------------------------------
+def test_public_client_is_enabled_without_secret() -> None:
+    assert _cfg(client_secret="").enabled is True  # public client + PKCE, no secret needed
+
+
+@respx.mock
+async def test_public_client_exchange_omits_secret() -> None:
+    captured: dict[str, Any] = {}
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.content.decode()
+        return httpx.Response(200, json={"id_token": "x"})
+
+    respx.post(_ISSUER + "/token").mock(side_effect=_capture)
+    await OidcClient(_cfg(client_secret="")).exchange_code("c", "v", "https://af.test/callback")
+    assert "client_secret" not in captured["body"]  # public client sends no secret
+    assert "code_verifier=v" in captured["body"]     # PKCE secures it instead
+
+
 @respx.mock
 async def test_exchange_code_success(rsa_keys: tuple[Any, Any]) -> None:
     priv, _ = rsa_keys

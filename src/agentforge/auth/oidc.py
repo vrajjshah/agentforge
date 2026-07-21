@@ -56,9 +56,12 @@ class OidcClient:
             "code": code,
             "redirect_uri": redirect_uri,
             "client_id": self._cfg.client_id,
-            "client_secret": self._cfg.client_secret,
             "code_verifier": verifier,
         }
+        # A confidential client authenticates with its secret; a public client relies on PKCE alone
+        # (no secret to leak) — OpenEMR's dynamic registration issues public clients by default.
+        if self._cfg.client_secret:
+            data["client_secret"] = self._cfg.client_secret
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 resp = await client.post(self._cfg.token_url, data=data)

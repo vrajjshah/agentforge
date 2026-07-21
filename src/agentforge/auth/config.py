@@ -26,8 +26,9 @@ class SsoConfig:
 
     @property
     def enabled(self) -> bool:
-        """SSO can run iff a client is registered (id + secret + redirect)."""
-        return bool(self.client_id and self.client_secret and self.redirect_uri)
+        """SSO can run once a client is registered. The secret is optional — a public client
+        (OpenEMR's default from dynamic registration) is secured by PKCE, not a secret."""
+        return bool(self.client_id and self.redirect_uri)
 
     @property
     def authorize_url(self) -> str:
