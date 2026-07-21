@@ -225,10 +225,27 @@ authorization-code + PKCE flow:
    refused with a clear message. Sessions are opaque HttpOnly cookies indexing a server-side TTL
    store; `/logout` clears them. The client secret lives in the environment, never in code.
 
-**Enforcement is configurable** (`AGENTFORGE_SSO_REQUIRE`). The public demo deployment leaves the
-read view open so a reviewer can inspect the dashboard, while the **mutating attack-trigger is
-always SSO+RBAC gated** whenever SSO is configured; production sets `AGENTFORGE_SSO_REQUIRE=1` to
-gate the read view too. The whole flow is covered by unit tests (PKCE, JWKS verification, each
+**Enforcement is tiered, not on/off.** Three classes of surface, gated independently:
+
+| Surface | Anonymous | Authorized operator |
+|---|---|---|
+| Posture — pass rate, per-category counts, per-severity counts, "defense held", cost, self-test | visible | visible |
+| **Reproduction** — `/reports/*`, finding titles (which name the technique), the `findings` array of `/api/dashboard` | **refused** (counts + an explicit statement of what is withheld) | visible |
+| **Mutation** — `POST /api/run/*` | **refused** | permitted |
+
+Reproduction is gated *regardless of* `AGENTFORGE_SSO_REQUIRE`, because a vulnerability report is a
+working attack sequence against a live clinical system — a security platform that publishes those to
+the open internet is the anti-pattern it exists to flag, so it does not do it either. Setting
+`AGENTFORGE_SSO_REQUIRE=1` additionally gates the *whole* read view for a production deployment.
+RBAC is re-evaluated per request rather than trusted from login time, so revoking an operator takes
+effect immediately instead of at session expiry.
+
+**Break-glass.** `/login/token` mints an operator session from a shared token (POST-only so it never
+rides in a URL; `secrets.compare_digest`; disabled unless `AGENTFORGE_ADMIN_TOKEN` is set). It
+exists so an IdP outage never becomes a reason to disable the gate, and its authority is the
+continued presence of the token that minted it — clearing the variable revokes live sessions.
+
+The whole flow is covered by unit tests (PKCE, JWKS verification, each
 negative case) and end-to-end web-flow tests (login → callback → session → RBAC → logout). It ports
 the identity patterns proven against this OpenEMR instance in the target application (PKCE, opaque
 server-side sessions, server-wins identity), hardened here with full JWKS signature verification.

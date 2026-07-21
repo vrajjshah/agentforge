@@ -116,8 +116,20 @@ The dashboard supports **SSO against the OpenEMR authorization server** (OIDC au
 PKCE, RS256 id_token verification against the issuer's JWKS, CSRF/state protection, and deny-by-
 default RBAC to security-operator identities/roles). Register the client once
 (`agentforge sso-register --redirect-uri <dashboard>/callback`) and set the returned credentials.
-Enforcement is configurable: the public demo leaves the read view open for review while every
-mutating action is SSO+RBAC gated; production sets `AGENTFORGE_SSO_REQUIRE=1`. See
+**Exploit detail is operator-only — the platform holds itself to its own findings.** A vulnerability
+report is a working attack sequence against a live clinical system, so publishing one to the open
+internet is precisely the anti-pattern this platform exists to flag. The public demo therefore
+splits the read view: *posture* is public (pass rate, per-category and per-severity counts, "defense
+held"), *reproduction* is not. `/reports/*`, finding titles (which name the technique), and the
+`findings` array of `/api/dashboard` require an authenticated, authorized operator regardless of
+`AGENTFORGE_SSO_REQUIRE`; anonymous callers get counts and an explicit statement of what is withheld.
+Setting `AGENTFORGE_SSO_REQUIRE=1` additionally gates the whole read view. RBAC is re-evaluated on
+every request, so revoking an operator takes effect immediately rather than at session expiry.
+
+A **break-glass operator login** (`/login/token`, POST-only, constant-time compare) exists so the
+platform is never left *ungated* because the identity provider is down — the failure mode that
+tempts an operator to turn the gate off. It is disabled unless `AGENTFORGE_ADMIN_TOKEN` is set, and
+clearing that variable revokes every live break-glass session. See
 [ARCHITECTURE.md](ARCHITECTURE.md#platform-access-control--login-with-openemr-sso).
 
 ## Architecture

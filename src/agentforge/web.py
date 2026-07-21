@@ -17,6 +17,7 @@ import os
 import secrets
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -44,11 +45,53 @@ _sessions = SessionStore()
 _flows = AuthFlowStore()
 _SESSION_COOKIE = "af_session"
 _STATE_COOKIE = "af_oauth_state"
+_BREAK_GLASS_SUB = "break-glass"
 
 
 def _current_operator(request: Request) -> OperatorSession | None:
     sid = request.cookies.get(_SESSION_COOKIE)
     return _sessions.get(sid) if sid else None
+
+
+def _admin_token_ok(supplied: str | None) -> bool:
+    """Break-glass principal: a shared operator token, constant-time compared. Disabled unless
+    ``AGENTFORGE_ADMIN_TOKEN`` is set, so it is never an accidental open door."""
+    admin = os.environ.get("AGENTFORGE_ADMIN_TOKEN", "")
+    return bool(admin and supplied and secrets.compare_digest(supplied, admin))
+
+
+async def _urlencoded_form(request: Request, max_bytes: int = 4096) -> dict[str, str]:
+    """Parse a small ``application/x-www-form-urlencoded`` body, size-capped.
+
+    Hand-parsed rather than via ``request.form()`` so the service takes no multipart-parser
+    dependency for one login form — less code reachable from an unauthenticated route.
+    """
+    body = (await request.body())[:max_bytes]
+    return {k: v[0] for k, v in parse_qs(body.decode("utf-8", "replace")).items() if v}
+
+
+def _authorized(operator: OperatorSession | None) -> bool:
+    """Deny-by-default authorization for a held session. A break-glass session carries no OIDC
+    claims to match, so its authority is the continued presence of the token that minted it —
+    clearing ``AGENTFORGE_ADMIN_TOKEN`` revokes every break-glass session immediately."""
+    if operator is None:
+        return False
+    if operator.subject == _BREAK_GLASS_SUB:
+        return bool(os.environ.get("AGENTFORGE_ADMIN_TOKEN"))
+    return is_authorized(operator, _sso)
+
+
+def _may_view_detail(request: Request,
+                     x_admin_token: str | None = None) -> bool:
+    """Deny-by-default gate for *exploit detail* — reports, finding titles, attack sequences.
+
+    Aggregate posture (pass rate, per-category counts, "defense held") stays public so a reviewer
+    can assess the platform; the reproduction steps do not. RBAC is re-evaluated on every request
+    rather than trusted from login time, so revoking an operator takes effect immediately.
+    """
+    if _authorized(_current_operator(request)):
+        return True
+    return _admin_token_ok(x_admin_token or request.headers.get("x-admin-token"))
 
 
 def _safe_return_to(raw: str | None) -> str:
@@ -63,14 +106,44 @@ def _dashboard_data() -> dict[str, Any]:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
+def _severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for f in findings:
+        sev = str(f.get("severity", "info"))
+        counts[sev] = counts.get(sev, 0) + 1
+    return counts
+
+
+def _sanitized(d: dict[str, Any]) -> dict[str, Any]:
+    """The anonymous projection: posture without reproduction.
+
+    Everything that describes *how* to exploit the target — finding titles (which name the
+    technique), report filenames, and the OWASP-mapped attack chains behind them — is dropped and
+    replaced with counts. A security platform that publishes working exploit steps to the open
+    internet is the anti-pattern it exists to flag, so the public view is counts-only by default.
+    """
+    findings = d.get("findings", [])
+    public = {k: v for k, v in d.items() if k != "findings"}
+    public["findings"] = []
+    public["detail_gated"] = True
+    public["findings_public"] = {
+        "total": len(findings),
+        "by_severity": _severity_counts(findings),
+        "note": "Finding detail (technique, attack sequence, reproduction) requires an "
+                "authenticated, authorized security operator.",
+    }
+    return public
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"service": "agentforge", "status": "ok"})
 
 
 @app.get("/api/dashboard")
-async def api_dashboard() -> JSONResponse:
-    return JSONResponse(_dashboard_data())
+async def api_dashboard(request: Request) -> JSONResponse:
+    data = _dashboard_data()
+    return JSONResponse(data if _may_view_detail(request) else _sanitized(data))
 
 
 @app.get("/api/coverage")
@@ -93,14 +166,14 @@ async def run(category: str, request: Request,
     """The attack trigger — a mutating action, so it is always gated. When SSO is configured it
     requires an authenticated, authorized operator (SSO+RBAC); otherwise it falls back to the
     admin-token header. Either way it is never open."""
-    if _sso.enabled:
-        operator = _current_operator(request)
-        if operator is None:
-            raise HTTPException(status_code=401, detail="login required (Log in with OpenEMR)")
-        if not is_authorized(operator, _sso):
+    operator = _current_operator(request)
+    if operator is not None:
+        if not _authorized(operator):
             raise HTTPException(status_code=403, detail="not an authorized security-operator")
         return JSONResponse({"accepted": category, "operator": operator.name,
                              "note": "run via CLI; results land in ./evals/"})
+    if _sso.enabled and not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+        raise HTTPException(status_code=401, detail="login required (Log in with OpenEMR)")
     admin = os.environ.get("AGENTFORGE_ADMIN_TOKEN", "")
     if not admin:
         raise HTTPException(status_code=403, detail="run trigger disabled (no admin token / no SSO)")
@@ -164,6 +237,38 @@ async def callback(request: Request) -> Response:
     return resp
 
 
+@app.get("/login/token", response_class=HTMLResponse)
+async def login_token_form(request: Request) -> Response:
+    """Break-glass operator login — a shared token, for when the OpenEMR IdP is unavailable.
+
+    OIDC is the primary path; this exists so the platform is never *ungated* just because the
+    identity provider is down (the failure mode that tempts an operator to turn the gate off).
+    Disabled unless ``AGENTFORGE_ADMIN_TOKEN`` is set. POST-only submission — a token must never
+    ride in a URL, where it would land in proxy and browser-history logs.
+    """
+    if not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+        raise HTTPException(status_code=404, detail="break-glass login not enabled")
+    return HTMLResponse(_TOKEN_LOGIN_PAGE.replace(
+        "__RETURN__", html.escape(_safe_return_to(request.query_params.get("return_to")))))
+
+
+@app.post("/login/token")
+async def login_token(request: Request) -> Response:
+    if not os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+        raise HTTPException(status_code=404, detail="break-glass login not enabled")
+    form = await _urlencoded_form(request)
+    if not _admin_token_ok(form.get("token")):
+        _log.warning("break-glass login: bad token from %s", request.client)
+        return HTMLResponse(_auth_notice("Invalid operator token."), status_code=401)
+    sid = secrets.token_urlsafe(32)
+    _sessions.set(sid, OperatorSession(subject=_BREAK_GLASS_SUB, name="break-glass operator",
+                                       email=None, fhir_user=None, roles=("security-operator",)))
+    resp = RedirectResponse(_safe_return_to(form.get("return_to")), status_code=302)
+    resp.set_cookie(_SESSION_COOKIE, sid, max_age=28800, httponly=True,
+                    secure=_sso.cookie_secure, samesite="lax", path="/")
+    return resp
+
+
 @app.get("/logout")
 async def logout(request: Request) -> Response:
     sid = request.cookies.get(_SESSION_COOKIE)
@@ -175,8 +280,18 @@ async def logout(request: Request) -> Response:
 
 
 @app.get("/reports/{name}", response_class=HTMLResponse)
-async def report(name: str) -> HTMLResponse:
-    """Serve a generated vulnerability report. Path-traversal-safe (basename only, .md only)."""
+async def report(name: str, request: Request) -> HTMLResponse:
+    """Serve a generated vulnerability report — the full reproduction steps.
+
+    Always gated, including in public-demo mode: this is a working exploit recipe against a live
+    healthcare system, so it is operator-only regardless of ``AGENTFORGE_SSO_REQUIRE``.
+    Path-traversal-safe (basename only, ``.md`` only).
+    """
+    if not _may_view_detail(request):
+        return HTMLResponse(_auth_notice(
+            "This vulnerability report contains a working reproduction sequence against a live "
+            "clinical system. It is restricted to authenticated, authorized security operators. "
+            "<a href='/login'>Log in with OpenEMR</a> to view it."), status_code=403)
     safe = Path(name).name
     path = _REPORTS / safe
     if not safe.endswith(".md") or not path.exists():
@@ -188,11 +303,12 @@ async def report(name: str) -> HTMLResponse:
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request) -> Response:
     operator = _current_operator(request)
-    # Read-view enforcement is opt-in (AGENTFORGE_SSO_REQUIRE): the public demo stays inspectable,
-    # production gates the read view too. The mutating run trigger is always gated (above).
+    # Read-view enforcement is opt-in (AGENTFORGE_SSO_REQUIRE): the public demo stays inspectable
+    # at the *posture* level, production gates the whole read view. Exploit detail and the mutating
+    # run trigger are gated either way.
     if _sso.enabled and _sso.require_sso and operator is None:
         return RedirectResponse("/login", status_code=302)
-    return HTMLResponse(_render(_dashboard_data(), operator))
+    return HTMLResponse(_render(_dashboard_data(), operator, _may_view_detail(request)))
 
 
 def _auth_notice(message: str) -> str:
@@ -207,6 +323,8 @@ def _auth_ui(operator: OperatorSession | None) -> str:
                 f"<a class=toggle href='/logout'>Sign out</a>")
     if _sso.enabled:
         return "<a class='toggle primary' href='/login'>Log in with OpenEMR</a>"
+    if os.environ.get("AGENTFORGE_ADMIN_TOKEN"):
+        return "<a class='toggle primary' href='/login/token'>Operator sign-in</a>"
     return ""
 
 
@@ -285,6 +403,47 @@ def _findings_rows(findings: list[dict[str, Any]]) -> str:
     return "".join(rows) or "<tr><td colspan=5 class=muted>no findings</td></tr>"
 
 
+_FINDINGS_LEAD = (
+    "<div class=lead>What a security reviewer scans first. Because the live target is hardened, "
+    "these are demonstrated on an ephemeral, isolated vulnerable build and each is fix-validated by "
+    "the regression harness — reproducible from the linked report alone.</div>"
+)
+
+
+def _findings_section(findings: list[dict[str, Any]], detail: bool) -> str:
+    """The findings block, gated. Authorized operators get the table and the linked reports;
+    everyone else gets counts and an explicit statement of what is being withheld and why."""
+    head = "<h2>Findings</h2>"
+    if detail:
+        return (f"{head}{_FINDINGS_LEAD}"
+                "<div class='card scroll'><table><thead><tr>"
+                "<th>Severity</th><th>Category</th><th>OWASP (web / LLM)</th><th>Status</th>"
+                "<th>Report</th></tr></thead><tbody>"
+                f"{_findings_rows(findings)}</tbody></table></div>")
+    counts = _severity_counts(findings)
+    pills = "".join(_sev_pill(sev) + f"<span class=lk-n>{counts[sev]}</span>"
+                    for sev in sorted(counts, key=lambda s: _SEV_RANK.get(s, 9)))
+    sign_in = ("<a class='toggle primary' href='/login'>Log in with OpenEMR</a>" if _sso.enabled
+               else ("<a class='toggle primary' href='/login/token'>Operator sign-in</a>"
+                     if os.environ.get("AGENTFORGE_ADMIN_TOKEN") else ""))
+    return (
+        f"{head}"
+        "<div class=lead>Counts are public; reproduction is not. Each report below contains a "
+        "working attack sequence against a clinical system, so the technique, the OWASP-mapped "
+        "exploit chain, and the repro steps are visible only to an authenticated, authorized "
+        "security operator. Publishing those to the open internet is the exact anti-pattern this "
+        "platform exists to flag — so it does not do it either.</div>"
+        "<div class='card locked'><div class=lk-top>"
+        f"<span class=lk-icon aria-hidden=true>🔒</span><div><div class=lk-h>"
+        f"{len(findings)} finding{'' if len(findings) == 1 else 's'} — detail restricted</div>"
+        "<div class=lk-sub>Severity breakdown and posture are shown below; reproduction steps are "
+        "operator-only.</div></div></div>"
+        f"<div class=lk-pills>{pills}</div>"
+        f"{'<div class=lk-cta>' + sign_in + '</div>' if sign_in else ''}"
+        "</div>"
+    )
+
+
 def _confusion(conf: dict[str, Any]) -> str:
     tp, tn, fp, fn = (conf.get(k, 0) for k in ("tp", "tn", "fp", "fn"))
 
@@ -333,7 +492,8 @@ def _activity_rows(activity: list[dict[str, Any]]) -> str:
     return "".join(rows) or "<li class=muted>no recent activity</li>"
 
 
-def _render(d: dict[str, Any], operator: OperatorSession | None = None) -> str:
+def _render(d: dict[str, Any], operator: OperatorSession | None = None,
+            detail: bool = False) -> str:
     if not d:
         return ("<body style='font-family:system-ui;max-width:640px;margin:80px auto;padding:0 20px'>"
                 "<h1>AgentForge</h1><p>No dashboard data yet. Run "
@@ -380,7 +540,7 @@ def _render(d: dict[str, Any], operator: OperatorSession | None = None) -> str:
         "__SURFACE__": _esc(t.get("surface", "—")),
         "__LASTRUN__": _esc(str(t.get("last_run", "—"))[:19].replace("T", " ")),
         "__STATS__": stats,
-        "__FINDINGS__": _findings_rows(d.get("findings", [])),
+        "__FINDINGS_SECTION__": _findings_section(d.get("findings", []), detail),
         "__COVERAGE__": _coverage_rows(d.get("coverage", {})),
         "__SELFTEST__": selftest,
         "__CONFUSION__": _confusion(st.get("confusion", {})),
@@ -413,6 +573,31 @@ _REPORT_PAGE = (
     "pre{white-space:pre-wrap;word-wrap:break-word}"
     "@media(prefers-color-scheme:light){body{background:#fff;color:#0f172a}}</style>"
     "<p><a href='/'>← back to dashboard</a></p><pre>__BODY__</pre>"
+)
+
+_TOKEN_LOGIN_PAGE = (
+    "<!doctype html><meta charset=utf-8><title>Break-glass operator login — AgentForge</title>"
+    "<meta name=viewport content='width=device-width,initial-scale=1'>"
+    "<meta name=robots content='noindex,nofollow'>"
+    "<style>:root{color-scheme:light dark}body{max-width:420px;margin:14vh auto;padding:0 20px;"
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;"
+    "line-height:1.55;background:#0b1220;color:#e6edf6}"
+    "h1{font-size:19px;margin:0 0 6px}p{color:#9fb1c7;font-size:13px}"
+    "input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #1e2b3d;"
+    "background:#0f1826;color:inherit;font-size:14px;margin:14px 0}"
+    "button{width:100%;padding:10px;border:0;border-radius:9px;background:#4f46e5;color:#fff;"
+    "font-weight:650;font-size:14px;cursor:pointer}a{color:#818cf8}"
+    "@media(prefers-color-scheme:light){body{background:#fff;color:#0f172a}"
+    "input{background:#fff;border-color:#e5eaf0}p{color:#475569}}</style>"
+    "<h1>Break-glass operator login</h1>"
+    "<p>Primary sign-in is <a href='/login'>Log in with OpenEMR</a>. Use this shared operator token "
+    "only when the identity provider is unavailable.</p>"
+    "<form method=post action='/login/token' autocomplete=off>"
+    "<input type=hidden name=return_to value='__RETURN__'>"
+    "<input type=password name=token placeholder='Operator token' aria-label='Operator token' "
+    "autofocus required>"
+    "<button type=submit>Sign in</button></form>"
+    "<p style='margin-top:18px'><a href='/'>← back to dashboard</a></p>"
 )
 
 
@@ -526,6 +711,18 @@ th{background:var(--surface-2);color:var(--ink-3);font-size:10.5px;text-transfor
 .seg-partial,.seg-warn{background:var(--warn)} .seg-inconclusive,.seg-muted{background:var(--ink-3)}
 .seg-cost{background:var(--accent)}
 
+/* gated findings panel */
+.card.locked{padding:18px 20px;background:linear-gradient(180deg,var(--surface),var(--surface-2))}
+.lk-top{display:flex;gap:14px;align-items:flex-start}
+.lk-icon{font-size:19px;line-height:1.2;flex:none;filter:grayscale(.2)}
+.lk-h{font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+.lk-sub{color:var(--ink-3);font-size:12.5px;margin-top:2px}
+.lk-pills{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 0}
+.lk-pills .pill{padding-right:4px}
+.lk-n{font-variant-numeric:tabular-nums;font-weight:750;font-size:13px;color:var(--ink-2);
+ margin:0 8px 0 -4px}
+.lk-cta{margin-top:16px}
+
 /* confusion matrix */
 .selftest-grid{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
 @media (max-width:720px){.selftest-grid{grid-template-columns:1fr}}
@@ -585,13 +782,7 @@ ul.timeline li{display:flex;align-items:center;gap:12px;padding:9px 14px;
 
 <div class=stats>__STATS__</div>
 
-<h2>Findings</h2>
-<div class=lead>What a security reviewer scans first. Because the live target is hardened, these are
- demonstrated on an ephemeral, isolated vulnerable build and each is fix-validated by the regression
- harness — reproducible from the linked report alone.</div>
-<div class="card scroll"><table><thead><tr>
- <th>Severity</th><th>Category</th><th>OWASP (web / LLM)</th><th>Status</th><th>Report</th>
- </tr></thead><tbody>__FINDINGS__</tbody></table></div>
+__FINDINGS_SECTION__
 
 <h2>Coverage by attack category</h2>
 <div class="card scroll"><table><thead><tr>
@@ -638,8 +829,9 @@ ul.timeline li{display:flex;align-items:center;gap:12px;padding:9px 14px;
  OWASP taxonomy __TAXONOMY__ · generated __GENERATED__. Every eval case is dual-OWASP-mapped and
  reproducible (fixed-seed generation). Against the hardened live target the honest result is
  <b>defense held</b> — a legitimate outcome, not a gap. Synthetic patient data only; no real PHI.
- This page is self-contained (no external scripts, fonts, or trackers) and read-only — the attack
- trigger is RBAC-gated and off by default.
+ This page is self-contained (no external scripts, fonts, or trackers) and read-only. The attack
+ trigger and every exploit-reproduction detail are RBAC-gated to authenticated operators — this
+ platform applies its own findings to itself.
  <br>API: <a href="/api/dashboard">/api/dashboard</a> · <a href="/api/coverage">/api/coverage</a> ·
  <a href="/api/target">/api/target</a> · <a href="/health">/health</a>
 </div>

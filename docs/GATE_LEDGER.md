@@ -27,6 +27,8 @@ and the reproducible evidence command.
 | 15 | **Idempotency / TOCTOU (double-write)** | Judge | two 2xx write-successes across confirms (`max_success_2xx=1`) | verdict EXPLOITED (`double-write`) | one 2xx + one 409 → DEFENDED | `pytest tests/test_judge.py::test_double_write_is_exploited_toctou` |
 | 16 | **Per-campaign cost cap** | eval runner | a live run exceeding the budget | execution stops before the next billed turn | under budget → runs to completion | `run_category(..., budget_usd=)` halt path |
 | 17 | **Judge drift gate on frozen fixtures** | drift gate | flip a golden's expected label / tamper the fixture | gate BLOCKS (drift / tampered) | intact goldens → passes | `pytest tests/test_drift.py` |
+| 18 | **Exploit-detail gate** — reproduction is operator-only, even in public-demo mode | web | request `/reports/<id>.md` and `/api/dashboard` anonymously | 403 on the report; `findings: []` + `detail_gated` on the API; the technique string absent from the rendered page | authorized operator (SSO session, break-glass session, or `x-admin-token`) → full report + findings | `pytest tests/test_web_gating.py` |
+| 19 | **Break-glass authority expires with its token** | web | clear `AGENTFORGE_ADMIN_TOKEN` while a break-glass session is live | the live session loses detail access on its next request (403) | token set → same session is authorized | `pytest tests/test_web_gating.py::test_break_glass_revoked_when_token_cleared` |
 
 ## Pre-push gate — live proof-of-firing (control #1)
 
