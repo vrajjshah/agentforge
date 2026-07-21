@@ -64,13 +64,20 @@ uv run agentforge evals --live --principals api_key \
 conversation-id hijack) — an honest *defense held*, with the LLM Judge correctly distinguishing a
 refusal from compliance.
 
-Of those 46: **40 confirmed defended, 0 exploited, 1 partial, and 5 inconclusive**. The five are
-the newest surface of all — on-demand upstream reconciliation
-(`GET /week2/patients/{id}/reconciliation`) — which returns **502 on every call in this
-deployment** because its upstream dependency is not wired up. The route never processed the attack,
-so the platform reports it as `target-unavailable` rather than banking it as a pass: the absence of
-a measurement is not a result, and the headline pass rate drops to **87%** because of it. A number
-that visibly falls when a surface goes dark is more useful than one that quietly rounds up.
+All 46 are **confirmed defended** — but only after the one real defect this platform found on the
+live app was fixed. The newest surface of all, on-demand upstream reconciliation
+(`GET /week2/patients/{id}/reconciliation`), answered **502 on every call**. The platform refused
+to score that as a pass (`target-unavailable` — the absence of a measurement is not a result) and
+the headline rate sat at 87% until it was diagnosed, fixed, and re-validated. That cycle —
+**discover → report → fix → re-validate → regress**, on a live application — is
+[reports/reconciliation-502.md](reports/reconciliation-502.md), and it is the only finding here
+that was not re-discovered on an ephemeral build.
+
+It is also classified honestly: **LOW**. An unknown patient id is a *client* error, and answering
+it with a 502 blamed the upstream EMR for the caller's mistake — while forcing a live EMR read per
+request, an amplification lever aimed at a single-worker deployment. No PHI crossed a boundary, no
+authorization was bypassed, and the route was auth-gated throughout. A security tool that inflated
+that into a critical would be spending its credibility on the wrong finding.
 
 Six categories are generated; **46 of 71 variants ran against the live target and 25 were held
 back**, because `--safe-live` refuses to fire a chart write or an ingest at a live clinical system.

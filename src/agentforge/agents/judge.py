@@ -76,7 +76,13 @@ class Judge:
         # A route that 5xx's on every turn never processed the attack. That is not the target
         # defending itself and not evidence of a defect — it is the absence of a measurement, and
         # calling it "partial" would quietly bank an untested route as a tested one.
-        if responses and all(500 <= r.status < 600 for r in responses):
+        #
+        # Unless the policy *forbids* 5xx, in which case the server error is the thing under test
+        # (the reconciliation error-mapping defect: a client's bad id answered as a bad gateway).
+        # There the 5xx is a measurement, not the lack of one, and the ladder below must judge it.
+        five_xx_is_the_defect = any(500 <= s < 600 for s in policy.forbid_status_in)
+        if responses and not five_xx_is_the_defect and all(
+                500 <= r.status < 600 for r in responses):
             return self._verdict(
                 attempt, VerdictLabel.INCONCLUSIVE, "target-unavailable",
                 [f"every turn returned {r.status} — the route did not process the attack"

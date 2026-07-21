@@ -1,6 +1,6 @@
 [
   {
-    "id": "vuln_8a82ba19d0b2479e",
+    "id": "vuln_58f9164954b14916",
     "seed": "ea8fa01",
     "severity": "critical",
     "category": "data_exfiltration",
@@ -11,7 +11,7 @@
     "file": "ea8fa01.md"
   },
   {
-    "id": "vuln_d9bbb1d06f3640ef",
+    "id": "vuln_0496843b97504a7c",
     "seed": "e0e7b6a",
     "severity": "high",
     "category": "identity_role",
@@ -22,7 +22,7 @@
     "file": "e0e7b6a.md"
   },
   {
-    "id": "vuln_101e709256ef4ae9",
+    "id": "vuln_fd800a77d1964c5a",
     "seed": "b5f4b1e",
     "severity": "medium",
     "category": "concurrency_idempotency",
@@ -31,5 +31,17 @@
     "status": "closed",
     "title": "Concurrency Idempotency: toctou-double-confirm",
     "file": "b5f4b1e.md"
+  },
+  {
+    "id": "vuln_a76befd7ebcb4d28",
+    "seed": "reconciliation-amplify",
+    "severity": "low",
+    "category": "denial_of_service",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "status": "closed",
+    "title": "Availability: client error reported as a 502 upstream failure",
+    "file": "reconciliation-502.md",
+    "surface": "live target"
   }
 ]

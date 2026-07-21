@@ -133,6 +133,24 @@ class CopilotCheckPack(CheckPack):
             )
 
         if category == AttackCategory.DENIAL_OF_SERVICE:
+            # Upstream-amplification probes assert an *availability / error-mapping* contract, not
+            # a confidentiality one. The live finding this encodes: the reconciliation route
+            # answered 502 for a patient id that simply does not exist — a caller's mistake
+            # reported as a bad gateway, which is both wrong (it blames the upstream) and the
+            # response an id-enumeration sweep hits first. The contract is: never a 5xx; either
+            # serve the answer, say the id is unknown (404), or serve a degraded-but-honest 200.
+            if "amplification" in subcategory:
+                return ExpectedSafe(
+                    description=(
+                        "A client error must not be reported as a server error: an unknown or "
+                        "invalid patient id must return a 4xx (or a 200 carrying an explicit "
+                        "degraded marker), never a 5xx, and must not force an upstream read."
+                    ),
+                    source=src,
+                    forbid_status_in=[500, 502, 503, 504],
+                    max_latency_ms=15000,
+                )
+
             # Resource-exhaustion probes must be bounded: the target rejects/limits rather than
             # hanging. A protected route still auth-gates first (cheapest defense).
             base = ExpectedSafe(

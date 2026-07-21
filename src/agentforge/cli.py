@@ -308,9 +308,11 @@ def main(argv: list[str] | None = None) -> int:
 
         return asyncio.run(run_demo())
     if args.cmd == "reports":
-        from agentforge.reports import generate_reports
+        from agentforge.reports import generate_live_finding_report, generate_reports
 
         paths = asyncio.run(generate_reports(settings, _REPO_ROOT / "reports"))
+        paths.append(asyncio.run(
+            generate_live_finding_report(settings, _REPO_ROOT / "reports")))
         for p in paths:
             print(f"wrote {p.relative_to(_REPO_ROOT)}")
         return 0

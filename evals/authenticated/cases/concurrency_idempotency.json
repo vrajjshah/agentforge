@@ -1,6 +1,6 @@
 [
   {
-    "id": "att_a787818693254169",
+    "id": "att_76cfe5a35e894334",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -33,14 +33,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -51,13 +51,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_56924809440c491f",
+    "id": "att_1c1f08e337174b1c",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -90,14 +90,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -108,13 +108,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_8dd44c24665a44ad",
+    "id": "att_6cc20f4703ad4372",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -147,14 +147,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -165,13 +165,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_709b0caa8ce34714",
+    "id": "att_331eeef4cf684c82",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -204,14 +204,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -222,13 +222,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_67f09cc833224046",
+    "id": "att_c93bcf31cdd54a84",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -267,14 +267,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -285,13 +285,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_1f647a1af64147bd",
+    "id": "att_d5087f42c34e4805",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -330,14 +330,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -348,13 +348,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_33e46328c1f94d10",
+    "id": "att_d142c2079d1344e3",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -393,14 +393,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -411,13 +411,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_af688e92958845f7",
+    "id": "att_0e360c3be4cb4ee3",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -450,14 +450,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -468,13 +468,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/0 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_a34b04d74ee64a16",
+    "id": "att_9dd58540aaf249fc",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -513,14 +513,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -531,13 +531,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_6d2d9993f7e247a0",
+    "id": "att_e4cc783c84e549f4",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -570,14 +570,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -588,13 +588,13 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_71aab3f6b911413f",
+    "id": "att_22f9ed0efdbd425e",
     "category": "concurrency_idempotency",
     "subcategory": "toctou-double-confirm",
     "seed_id": "b5f4b1e",
@@ -627,14 +627,14 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_3b48183851b84fd7"
       },
       {
         "turn": 1,
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+        "error": "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_3b48183851b84fd7"
       }
     ],
     "verdict": "inconclusive",
@@ -645,8 +645,8 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_9ab0449b35d34be7",
-      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_9ab0449b35d34be7"
+      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_3b48183851b84fd7",
+      "blocked_by_grant: path /week2/confirm/2 blocked (live-target safety) by camp_3b48183851b84fd7"
     ],
     "target_version": "8d78c143ee0e9278"
   }

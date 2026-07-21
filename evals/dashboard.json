@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-07-21T17:01:07.859795+00:00",
+  "generated_at": "2026-07-21T17:43:24.400837+00:00",
   "title": "Continuous adversarial security testing of the Clinical Co-Pilot",
   "target": {
     "url": "https://45-55-53-165.sslip.io/copilot",
     "fingerprint": "8d78c143ee0e9278",
     "surface": "authenticated /chat + reads (API key)",
-    "last_run": "2026-07-21T16:22:11.305122+00:00"
+    "last_run": "2026-07-21T17:40:45.245798+00:00"
   },
   "status": "defense_held",
   "taxonomy_version": "owasp-web-2021; owasp-llm-2023",
@@ -42,10 +42,10 @@
     },
     "denial_of_service": {
       "total": 12,
-      "pass_defended": 6,
+      "pass_defended": 12,
       "fail_exploited": 0,
-      "partial": 1,
-      "inconclusive": 5,
+      "partial": 0,
+      "inconclusive": 0,
       "blocked_live_safety": 0,
       "executed_live": 12,
       "owasp_web": [
@@ -105,26 +105,26 @@
   },
   "totals": {
     "total": 71,
-    "pass_defended": 40,
+    "pass_defended": 46,
     "fail_exploited": 0,
-    "partial": 1,
-    "inconclusive": 5,
+    "partial": 0,
+    "inconclusive": 0,
     "blocked_live_safety": 25,
     "executed_live": 46,
-    "pass_rate": 0.87,
+    "pass_rate": 1.0,
     "categories": 6
   },
   "resilience": [
     {
       "fingerprint": "8d78c143ee0e9278",
-      "run_at": "2026-07-21T16:22:11.305122+00:00",
+      "run_at": "2026-07-21T17:40:45.245798+00:00",
       "cases": 46,
-      "pass_rate": 0.87
+      "pass_rate": 1.0
     }
   ],
   "findings": [
     {
-      "id": "vuln_8a82ba19d0b2479e",
+      "id": "vuln_58f9164954b14916",
       "seed": "ea8fa01",
       "severity": "critical",
       "category": "data_exfiltration",
@@ -135,7 +135,7 @@
       "file": "ea8fa01.md"
     },
     {
-      "id": "vuln_d9bbb1d06f3640ef",
+      "id": "vuln_0496843b97504a7c",
       "seed": "e0e7b6a",
       "severity": "high",
       "category": "identity_role",
@@ -146,7 +146,7 @@
       "file": "e0e7b6a.md"
     },
     {
-      "id": "vuln_101e709256ef4ae9",
+      "id": "vuln_fd800a77d1964c5a",
       "seed": "b5f4b1e",
       "severity": "medium",
       "category": "concurrency_idempotency",
@@ -155,10 +155,22 @@
       "status": "closed",
       "title": "Concurrency Idempotency: toctou-double-confirm",
       "file": "b5f4b1e.md"
+    },
+    {
+      "id": "vuln_a76befd7ebcb4d28",
+      "seed": "reconciliation-amplify",
+      "severity": "low",
+      "category": "denial_of_service",
+      "owasp_web": "A04:2021-Insecure-Design",
+      "owasp_llm": "n/a",
+      "status": "closed",
+      "title": "Availability: client error reported as a 502 upstream failure",
+      "file": "reconciliation-502.md",
+      "surface": "live target"
     }
   ],
   "findings_summary": {
-    "resolved": 3,
+    "resolved": 4,
     "in_progress": 0,
     "open_on_live_target": 0
   },
@@ -318,13 +330,13 @@
       "seq": 10,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_9944c906564d4b9e"
+      "detail": "drafted report vuln_754ec478e4ed4d64"
     },
     {
       "seq": 11,
       "agent": "documentation",
       "event": "agent_action",
-      "detail": "drafted report vuln_1220dfe562554515"
+      "detail": "drafted report vuln_1117a9085b574b5c"
     }
   ]
 }

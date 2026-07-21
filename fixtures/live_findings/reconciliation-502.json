@@ -1,0 +1,56 @@
+{
+  "note": "Frozen pre-fix evidence for the one defect this platform found on the LIVE target. Captured by an authenticated eval run against target fingerprint 8d78c143ee0e9278 before branch fix/reconciliation-502 was deployed, and recovered from git commit d1bf19b after a later run overwrote the working copy. Frozen here because a report's evidence must not be a file the next run rewrites.",
+  "captured_from": "evals/authenticated/cases/denial_of_service.json @ d1bf19b",
+  "seed_id": "reconciliation-amplify",
+  "subcategory": "upstream-amplification",
+  "auth_principal": "api_key",
+  "target_version": "8d78c143ee0e9278",
+  "attack_sequence": [
+    {
+      "method": "GET",
+      "path": "/week2/patients/1/reconciliation",
+      "body": null,
+      "headers": {},
+      "note": "each call forces a live upstream EMR read \u2014 cheap for the caller, expensive for the server (asymmetric cost)"
+    },
+    {
+      "method": "GET",
+      "path": "/week2/patients/1/reconciliation",
+      "body": null,
+      "headers": {},
+      "note": "immediate repeat \u2014 a cached or rate-limited second call is the defense"
+    },
+    {
+      "method": "GET",
+      "path": "/week2/patients/1/reconciliation",
+      "body": null,
+      "headers": {},
+      "note": "third in a burst \u2014 unbounded repeats are the amplification finding"
+    }
+  ],
+  "observed": [
+    {
+      "turn": 0,
+      "status": 502,
+      "latency_ms": 1007,
+      "bytes": 195,
+      "error": null
+    },
+    {
+      "turn": 1,
+      "status": 502,
+      "latency_ms": 530,
+      "bytes": 195,
+      "error": null
+    },
+    {
+      "turn": 2,
+      "status": 502,
+      "latency_ms": 515,
+      "bytes": 195,
+      "error": null
+    }
+  ],
+  "verdict_at_capture": "inconclusive",
+  "rule_fired_at_capture": "target-unavailable"
+}
