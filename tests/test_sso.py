@@ -410,8 +410,9 @@ def test_header_never_shows_a_bare_uuid() -> None:
 
     uuid = "a2348815-c7ae-4eea-bb78-34517eef9cee"
     label, tooltip = web._operator_label(claims_to_session({"sub": uuid}))
-    assert label == "OpenEMR operator"
-    assert uuid not in label
+    assert label.startswith("OpenEMR operator")
+    assert uuid not in label                     # never the whole opaque id
+    assert uuid[:8] in label                     # but enough to tell two operators apart
     assert uuid in tooltip                       # still reachable by an operator who needs it
 
     named = claims_to_session({"sub": uuid, "name": "Administrator"})
@@ -450,3 +451,16 @@ async def test_userinfo_failure_does_not_break_the_login() -> None:
     with respx.mock:
         respx.get(_cfg().userinfo_url).mock(return_value=httpx.Response(403))
         assert await client.fetch_userinfo("token") == {}
+
+
+async def test_userinfo_404_is_survivable(rsa_keys: tuple[Any, Any]) -> None:
+    """This issuer advertises a userinfo_endpoint in its discovery document and returns 404 for
+    it. A client that follows discovery must not break on that — the login still completes and
+    the session still carries the verified subject."""
+    client = OidcClient(_cfg())
+    with respx.mock:
+        respx.get(_cfg().userinfo_url).mock(return_value=httpx.Response(404, text="<html>"))
+        profile = await client.fetch_userinfo("token")
+    assert profile == {}
+    session = claims_to_session({"sub": "u-1"}, profile)
+    assert session.subject == "u-1"

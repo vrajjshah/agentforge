@@ -486,8 +486,13 @@ def _operator_label(operator: OperatorSession) -> tuple[str, str]:
     the identifier into the tooltip, where an operator checking *which* principal they hold can
     still find it.
     """
+    # When the issuer exposes no name — this one's id_token is aud/iss/iat/exp/sub/nonce only, and
+    # the userinfo_endpoint its own discovery document advertises returns 404 — a short prefix of
+    # the subject is the most useful honest label left: enough to tell two operators apart at a
+    # glance, without dumping a uuid nobody can read.
     has_human_name = operator.name and operator.name != operator.subject
-    label = operator.name if has_human_name else "OpenEMR operator"
+    label = (operator.name if has_human_name
+             else f"OpenEMR operator · {operator.subject[:8]}")
     detail = operator.email or operator.subject
     return label, f"authenticated security-operator · {detail}"
 
