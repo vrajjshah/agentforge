@@ -47,8 +47,15 @@
       "title": "Auth Principals",
       "type": "array"
     },
+    "blocked_path_substrings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Path Substrings",
+      "type": "array"
+    },
     "budget_usd": {
-      "default": 1.0,
+      "default": 20.0,
       "title": "Budget Usd",
       "type": "number"
     },

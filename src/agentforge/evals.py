@@ -81,21 +81,40 @@ def _pass_fail(label: VerdictLabel) -> str:
             VerdictLabel.PARTIAL: "partial", VerdictLabel.INCONCLUSIVE: "inconclusive"}[label]
 
 
-def _campaign(category: AttackCategory, principals: list[Any], max_attempts: int) -> Campaign:
+# Live-target safety: never send a chart write / ingest to the live deployment (Vraj is working
+# in it). These paths run against the ephemeral vulnerable build only.
+BLOCKED_LIVE_PATHS: tuple[str, ...] = (
+    "/confirm", "/reject", "/reopen", "/provisional", "/upload", "/process",
+)
+
+
+def _campaign(category: AttackCategory, principals: list[Any], max_attempts: int,
+              blocked_path_substrings: list[str] | None = None,
+              budget_usd: float = 20.0) -> Campaign:
     return Campaign(name=f"eval-{category.value}", category=category, target_id="copilot",
-                    auth_principals=principals, max_attempts=max_attempts)
+                    auth_principals=principals, max_attempts=max_attempts, budget_usd=budget_usd,
+                    blocked_path_substrings=blocked_path_substrings or [])
 
 
 async def run_category(
     redteam: RedTeamAgent, judge: Judge, category: AttackCategory, target_version: str,
-    principals: list[Any], max_attempts: int, live: bool,
+    principals: list[Any], max_attempts: int, live: bool, budget_usd: float = 20.0,
+    blocked_path_substrings: list[str] | None = None,
 ) -> list[EvalResult]:
-    campaign = _campaign(category, principals, max_attempts)
+    """Run one category, enforcing a hard cost cap: live executions stop once spend hits the
+    budget (the Orchestrator's circuit breaker applied to the paid eval path — F8)."""
+    from agentforge.agents.orchestrator import estimate_attempt_cost, verdict_cost
+
+    campaign = _campaign(category, principals, max_attempts, blocked_path_substrings, budget_usd)
     attempts = redteam.generate(campaign, target_version)
     results: list[EvalResult] = []
+    spent = 0.0
     for attempt in attempts:
+        if live and spent >= budget_usd:
+            break  # hard budget cap hit — halt before billing another live turn
         executed = await redteam.execute(attempt, campaign) if live else attempt
         verdict = await judge.judge(executed)
+        spent += estimate_attempt_cost(executed) + verdict_cost(verdict)
         results.append(EvalResult(executed, verdict))
     return results
 

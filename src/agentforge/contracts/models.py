@@ -175,12 +175,15 @@ class Campaign(_Base):
     category: AttackCategory
     target_id: str
     target_version: str = ""              # filled by the adapter fingerprint at run start
-    budget_usd: float = 1.0
+    budget_usd: float = 20.0              # hard per-campaign cap; Orchestrator halts on hit (F8)
     max_attempts: int = 50
     max_turns_per_attempt: int = 4
     # Capability grant (F2): the executor rejects any probe outside these.
     allowed_methods: list[str] = Field(default_factory=lambda: ["GET", "POST"])
     allowed_path_prefixes: list[str] = Field(default_factory=list)
+    # Live-target safety: any probe whose path contains one of these is blocked (never sent).
+    # Used to keep live runs non-destructive (no chart writes) — writes go to the ephemeral build.
+    blocked_path_substrings: list[str] = Field(default_factory=list)
     auth_principals: list[AuthPrincipal] = Field(default_factory=lambda: [AuthPrincipal.NONE])
     seed_ids: list[str] = Field(default_factory=list)
     halt_after_no_signal: int = 20        # circuit breaker: attempts w/o new signal before HALT

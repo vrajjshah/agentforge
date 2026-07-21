@@ -9,7 +9,7 @@ Every probe is checked against the campaign's capability grant before it leaves 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 from agentforge.adapters.base import (
     AllowListViolation,
@@ -42,11 +42,22 @@ class RedTeamAgent:
     checkpack: CheckPack
     engine: MutationEngine
     seed_generator: SeedGenerator | None = None
+    # Novel payloads (e.g. from the Bedrock seed model), keyed by seed id, merged before mutation.
+    extra_payloads: dict[str, list[str]] = field(default_factory=dict)
 
     def _seeds(self, campaign: Campaign) -> list[Seed]:
-        if campaign.seed_ids:
-            return [s for sid in campaign.seed_ids if (s := seed_by_id(sid)) is not None]
-        return seeds_for(campaign.category)
+        base = (
+            [s for sid in campaign.seed_ids if (s := seed_by_id(sid)) is not None]
+            if campaign.seed_ids else seeds_for(campaign.category)
+        )
+        return [self._augment(s) for s in base]
+
+    def _augment(self, seed: Seed) -> Seed:
+        extra = self.extra_payloads.get(seed.id)
+        if not extra:
+            return seed
+        merged = [*seed.injection_payloads, *extra]
+        return replace(seed, injection_payloads=merged)
 
     def _check_grant(self, campaign: Campaign, turn: AttackTurn) -> None:
         method = turn.probe.method.upper()
@@ -57,6 +68,11 @@ class RedTeamAgent:
             raise CapabilityViolation(
                 f"path {turn.probe.path} not granted by campaign {campaign.id}"
             )
+        for blocked in campaign.blocked_path_substrings:
+            if blocked in turn.probe.path:
+                raise CapabilityViolation(
+                    f"path {turn.probe.path} blocked (live-target safety) by {campaign.id}"
+                )
 
     def generate(self, campaign: Campaign, target_version: str) -> list[AttackAttempt]:
         """Build attempts (no execution). Used for the eval dataset and hermetic tests."""
@@ -105,7 +121,13 @@ class RedTeamAgent:
                 error="principal_unavailable")]})
         observed: list[ObservedResponse] = []
         for turn in attempt.turns:
-            self._check_grant(campaign, turn)
+            try:
+                self._check_grant(campaign, turn)
+            except CapabilityViolation as exc:
+                observed.append(ObservedResponse(
+                    turn_index=turn.index, status=0, latency_ms=0, response_bytes=0,
+                    body_excerpt="", error=f"blocked_by_grant: {exc}"))
+                continue
             try:
                 resp = await self.adapter.invoke(turn.probe, auth)
             except AllowListViolation as exc:

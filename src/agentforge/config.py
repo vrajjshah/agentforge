@@ -52,7 +52,9 @@ class Settings:
                 "AGENTFORGE_JUDGE_MODEL", "us.anthropic.claude-opus-4-8"
             ),
             redteam_seed_model=os.environ.get(
-                "AGENTFORGE_REDTEAM_SEED_MODEL", "us.meta.llama3-3-70b-instruct-v1:0"
+                # Llama 4 Maverick — empirically complies with authorized offensive framing
+                # (unlike 3.3-70b, untested); generates the novel /chat injection seeds.
+                "AGENTFORGE_REDTEAM_SEED_MODEL", "us.meta.llama4-maverick-17b-instruct-v1:0"
             ),
             data_dir=Path(os.environ.get("AGENTFORGE_DATA_DIR", str(_REPO_ROOT / "data"))),
             request_timeout_s=float(os.environ.get("AGENTFORGE_REQUEST_TIMEOUT_S", "30")),
