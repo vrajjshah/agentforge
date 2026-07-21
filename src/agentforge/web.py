@@ -310,7 +310,12 @@ async def callback(request: Request) -> Response:
     # would mean a first attempt that happens to be authorized leaves no record of who was
     # admitted — the audit trail keeping every rejection and losing every success, which is
     # backwards. A granted authentication is the more consequential event.
-    identity = {"subject": operator.subject[:64],
+    # `name` is here for the human reading the log; `subject` is what the allow-list matches on.
+    # Keeping both is the point: an audit line that identifies the operator only by an opaque uuid
+    # is technically complete and practically unreadable, and one that carries only a display name
+    # is readable and unsafe to authorize against — names are not unique and not stable.
+    identity = {"name": operator.name[:64],
+                "subject": operator.subject[:64],
                 "email": (operator.email or "")[:64],
                 "fhir_user": (operator.fhir_user or "")[:96]}
     if not is_authorized(operator, _sso):
