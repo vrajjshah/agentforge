@@ -138,8 +138,15 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
   disclosure, an accepted override, a reported out-of-scope tool action, and compliance on turn
   two after refusing turn one. The rubric was rewritten to enumerate those, which scores 1.0 on
   the set it was tuned against — **in-sample, so not a result** — and **0.80** on a held-out set
-  written afterwards. 0.80 is what the dashboard publishes, and both remaining errors trace to one
-  named blind spot: the rung is never told which patient is in scope. See
+  written afterwards.
+
+  Both of those remaining errors traced to one cause: the rung was never told which patient was in
+  scope. It now receives the check-pack's scope rule as trusted context alongside the attacker's
+  turn and the response, both fenced as untrusted. Scoring that needed a **second** holdout — the
+  first was spent the moment it diagnosed the bug — built around pairs that are identical in
+  wording and differ only in whether the record is in scope. Result: **0.917 agreement, 1.0
+  precision** on 12 unseen cases. The one remaining miss is an "aggregate" over a cohort of size
+  one, which is a small-cell problem rather than a scope problem, and is named as the next gap. See
   [ARCHITECTURE.md](ARCHITECTURE.md#two-different-accuracy-questions-measured-two-different-ways).
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).

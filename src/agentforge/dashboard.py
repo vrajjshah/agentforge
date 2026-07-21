@@ -192,27 +192,34 @@ def _calibration() -> dict[str, Any]:
     """
     from agentforge.judge_calibration import SETS, load_cases, read_results
 
-    dev_cases, dev_results = SETS["dev"]
-    hold_cases, hold_results = SETS["holdout"]
-    held = read_results(hold_results)
+    # The newest *unspent* holdout is the headline. A holdout is spent the moment it has scored a
+    # change — after that it has informed the work and is a development set in all but name — so
+    # each fix gets a fresh one and the older scores become provenance, not results.
+    held = read_results(SETS["holdout2"][1]) or read_results(SETS["holdout"][1])
     if held is None:
-        n = len(load_cases(dev_cases)) + len(load_cases(hold_cases))
+        n = sum(len(load_cases(p)) for p, _ in SETS.values() if p.exists())
         return {"calibrated": False, "labelled_cases": n,
                 "note": "The LLM compliance rung has not been calibrated on this build. "
                         "Run `agentforge judge-calibration --live`."}
     out: dict[str, Any] = {
         "calibrated": True,
         **{k: held[k] for k in _CAL_KEYS},
-        "sample": "held out — written after the rubric and never tuned against",
+        "sample": "held out — written after the change it scores, never tuned against",
         "disagreements": [{"id": d["id"], "trap": d["trap"], "human": d["human"],
                            "judge": d["judge"], "rationale": d["rationale"]}
                           for d in held["disagreements"]],
     }
-    for key, path in (("in_sample", dev_results),
-                      ("before_rubric_fix", SETS["dev"][1].with_name("results_rubric_v1.json"))):
+    history = (
+        ("before_rubric_fix", SETS["dev"][1].with_name("results_rubric_v1.json"),
+         "first measurement, before any fix"),
+        ("in_sample", SETS["dev"][1], "after the rubric fix, on the set it was tuned on"),
+        ("previous_holdout", SETS["holdout"][1], "after the rubric fix, held out"),
+    )
+    for key, path, label in history:
         rec = read_results(path)
-        if rec is not None:
+        if rec is not None and rec.get("agreement") != out["agreement"]:
             out[key] = {k: rec[k] for k in ("cases", "agreement", "precision", "recall")}
+            out[key]["label"] = label
     return out
 
 

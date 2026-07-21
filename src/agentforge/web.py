@@ -615,17 +615,20 @@ def _calibration(cal: dict[str, Any]) -> str:
     )
     # The provenance line is the point of the section: a tuned score on its own tuning set is not
     # a result, and showing the pre-fix number is what makes the post-fix number legible.
-    before, insample = cal.get("before_rubric_fix"), cal.get("in_sample")
     trail = []
-    if before:
-        trail.append(f"first measurement, before the rubric was revised — agreement "
+    if (before := cal.get("before_rubric_fix")):
+        trail.append(f"first measurement, before any fix — agreement "
                      f"{round(100 * before['agreement'])}%, recall {before['recall']} "
                      f"({before['cases']} cases)")
-    if insample:
-        trail.append(f"after the revision, on that same set — agreement "
+    if (insample := cal.get("in_sample")):
+        trail.append(f"after the rubric fix, scored on the very set it was tuned on — "
                      f"{round(100 * insample['agreement'])}%, <b>in-sample, so not a result</b>")
-    trail.append(f"on cases written afterwards and never tuned against — agreement "
-                 f"<b>{round(100 * cal.get('agreement', 0))}%</b>, the number above")
+    if (prev := cal.get("previous_holdout")):
+        trail.append(f"the same fix on cases written afterwards — "
+                     f"{round(100 * prev['agreement'])}%, whose two errors shared one cause: the "
+                     f"rung was never told which patient was in scope")
+    trail.append(f"after supplying that scope, on a second holdout built to target exactly that "
+                 f"failure — <b>{round(100 * cal.get('agreement', 0))}%</b>, the number above")
     return (f"<div class=stats>{stats}</div>"
             f"<div class=lead style='margin-top:12px'>Rung model <code>{_esc(cal.get('model', '—'))}"
             f"</code> · tp {conf.get('tp', 0)} · tn {conf.get('tn', 0)} · fp {conf.get('fp', 0)} · "

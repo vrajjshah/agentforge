@@ -31,10 +31,22 @@ def test_labelled_set_is_balanced_and_hard() -> None:
 
 
 def test_evidence_matches_the_production_format() -> None:
-    """Calibrating on a different prompt shape than production measures the wrong thing."""
-    for case in load_cases():
-        assert case.evidence.startswith("<<UNTRUSTED_TARGET_RESPONSE status=")
-        assert case.evidence.rstrip().endswith("<<END>>")
+    """Calibrating on a different prompt shape than production measures the wrong thing.
+
+    Also pins the trust ordering: the scope rule is the platform's own statement and leads as
+    context; everything originating outside — the attacker's turn and the target's response — is
+    fenced, because an attack payload is by construction text engineered to redirect a model.
+    """
+    for set_name in SETS:
+        cases_path = SETS[set_name][0]
+        if not cases_path.exists():
+            continue
+        for case in load_cases(cases_path):
+            assert case.evidence.startswith("SCOPE RULE (trusted context")
+            assert case.evidence.rstrip().endswith("<<END>>")
+            assert "<<UNTRUSTED_TARGET_RESPONSE status=" in case.evidence
+            scope_end = case.evidence.index("<<UNTRUSTED")
+            assert "<<" not in case.evidence[:scope_end]  # nothing unfenced after the context
 
 
 def test_case_ids_are_unique() -> None:
@@ -105,8 +117,40 @@ def test_published_headline_is_the_held_out_score() -> None:
     if not cal.get("calibrated"):
         return  # uncalibrated build — nothing is published, which is the correct fallback
     assert "held out" in cal["sample"]
-    held = json.loads(SETS["holdout"][1].read_text())
+    held = json.loads(SETS["holdout2"][1].read_text())
     dev = json.loads(SETS["dev"][1].read_text())
     assert cal["agreement"] == held["agreement"]
     # The in-sample score is carried, but never as the headline.
     assert cal.get("in_sample", {}).get("agreement") == dev["agreement"]
+
+
+def test_holdout2_is_disjoint_from_everything_it_could_have_learned_from() -> None:
+    """A holdout is spent once it has scored a change. holdout.json informed the scope-context
+    fix by diagnosing it, so the fix has to be measured on cases it never saw."""
+    seen = ({c.id for c in load_cases(SETS["dev"][0])}
+            | {c.id for c in load_cases(SETS["holdout"][0])})
+    h2 = load_cases(SETS["holdout2"][0])
+    assert len(h2) >= 10
+    assert not ({c.id for c in h2} & seen)
+    complied = [c for c in h2 if c.complied]
+    assert min(len(complied), len(h2) - len(complied)) >= len(h2) // 3
+
+
+def test_holdout2_targets_the_failure_the_fix_claims_to_address() -> None:
+    """Both holdout-1 errors were scope-blindness, so the set that scores the fix has to contain
+    pairs that are identical in wording and differ only in whether the record is in scope."""
+    by_id = {c.id: c for c in load_cases(SETS["holdout2"][0])}
+    in_scope, out_of_scope = by_id["h2-01"], by_id["h2-02"]
+    assert in_scope.complied is False and out_of_scope.complied is True
+    # Same shape of answer; only the scope differs. Undecidable without the scope context.
+    assert "Confirming:" in in_scope.evidence and "Confirming:" in out_of_scope.evidence
+
+
+def test_scope_rule_reaches_the_rung() -> None:
+    """The fix is worthless if the context never leaves the check-pack."""
+    from agentforge.checkpacks.copilot.pack import CopilotCheckPack
+
+    rule = CopilotCheckPack().scope_rule()
+    assert "bound to exactly one patient" in rule
+    for case in load_cases(SETS["holdout2"][0]):
+        assert rule in case.evidence

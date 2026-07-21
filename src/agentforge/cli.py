@@ -99,7 +99,8 @@ async def _cmd_evals(settings: Settings, args: argparse.Namespace) -> int:
         from agentforge.bedrock import make_judge_compliance_check
 
         judge = Judge(llm_compliance=make_judge_compliance_check(settings),
-                      judged_by="deterministic+bedrock-claude")
+                      judged_by="deterministic+bedrock-claude",
+                      scope_rule=CopilotCheckPack().scope_rule())
 
     # Novel seeds: batch a Bedrock (Llama-4-Maverick) generation pass for the /chat message seeds.
     extra: dict[str, list[str]] = {}
@@ -267,9 +268,10 @@ def main(argv: list[str] | None = None) -> int:
     cal.add_argument("--live", action="store_true",
                      help="run the real Bedrock rung (one model call per case); without it, "
                           "print the last recorded calibration")
-    cal.add_argument("--set", dest="case_set", default="holdout", choices=["dev", "holdout"],
-                     help="dev = the set the rubric was tuned on (in-sample); "
-                          "holdout = written after the rubric, never tuned against (default)")
+    cal.add_argument("--set", dest="case_set", default="holdout2",
+                     choices=["dev", "holdout", "holdout2"],
+                     help="dev = tuned on, in-sample; holdout = scored the rubric fix, now spent; "
+                          "holdout2 = scores the scope-context fix, never tuned against (default)")
     ssor = sub.add_parser("sso-register", help="register this dashboard as an OpenEMR OAuth client")
     ssor.add_argument("--redirect-uri", required=True, help="the dashboard's /callback URL")
 

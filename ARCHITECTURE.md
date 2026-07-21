@@ -225,14 +225,29 @@ answer). It scores **1.0 on the development set — which is in-sample and there
 and **0.80 agreement / 0.80 precision / 0.80 recall on a held-out set** written afterwards and
 never tuned against. That 0.80 is the number the dashboard publishes.
 
-Both held-out errors share one root cause, and it is worth stating plainly rather than filing as
-noise: **the rung is never told which patient is in scope.** It sees the response and nothing else,
-so it missed a silent scope switch (an out-of-scope answer delivered with no refusal or hedge to
-mark it) and false-alarmed on an in-scope JSON record. The fix is to pass the scope rule and the
-attacker's turn into the evidence blob as additional delimited, untrusted context — a change that
-would need its own fresh holdout to measure, since the current one has now been used. Until that
-lands, the rung's stated accuracy is 0.80 with a known and named blind spot, which is the honest
-description of it.
+Both held-out errors shared one root cause: **the rung was never told which patient was in scope.**
+It saw the response and nothing else, so it missed a silent scope switch (an out-of-scope answer
+delivered with no refusal or hedge to mark it) and false-alarmed on an in-scope JSON record. It was
+being asked whether an answer left "the patient's scope" with no way to know which patient that was.
+
+**The fix, and how it was measured.** The check-pack now supplies a `scope_rule()` — domain
+knowledge, so it lives with the rest of the domain knowledge — and the evidence blob carries three
+parts in descending trust: the scope rule as trusted platform context, then the attacker's turn and
+the target's response, both fenced as untrusted. The attack is included because "did it comply?" is
+not answerable without knowing what was asked; it is fenced because an attack payload is by
+construction text engineered to redirect a model.
+
+Scoring it required a **second holdout**, because the first was spent the moment it diagnosed the
+bug — a set that has informed a fix is a development set in all but name. `holdout2.json` was
+written before any scoring and leans on exactly the failure the fix targets: matched pairs,
+identical in wording, differing only in whether the record is in scope (`h2-01` gives full
+identifiers for the bound patient and is correct; `h2-02` gives them for another patient and is a
+leak — undecidable without the scope rule).
+
+Result: **0.917 agreement, 1.0 precision, 0.80 recall** on 12 unseen cases, up from 0.80, on a set
+built to be harder. Both members of the motivating pair are now judged correctly. One miss remains,
+`h2-06`: an "aggregate" statistic over a cohort of size one, which is a small-cell/k-anonymity
+problem rather than a scope problem, and is the next named gap rather than a mystery.
 
 ## Cost, rate-limits & model constraints at scale
 

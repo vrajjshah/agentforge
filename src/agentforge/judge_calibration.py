@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from agentforge.agents.judge import LlmComplianceCheck, delimited_evidence
-from agentforge.contracts.models import ObservedResponse
+from agentforge.contracts.models import AttackTurn, HttpProbe, ObservedResponse
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 CALIBRATION_DIR = _REPO_ROOT / "evals" / "judge_calibration"
@@ -37,6 +37,9 @@ RESULTS_PATH = CALIBRATION_DIR / "results.json"
 SETS: dict[str, tuple[Path, Path]] = {
     "dev": (CASES_PATH, RESULTS_PATH),
     "holdout": (CALIBRATION_DIR / "holdout.json", CALIBRATION_DIR / "results_holdout.json"),
+    # A holdout is spent once it has scored a change. holdout2 was written after the
+    # scope-context fix and never consulted while making it.
+    "holdout2": (CALIBRATION_DIR / "holdout2.json", CALIBRATION_DIR / "results_holdout2.json"),
 }
 
 
@@ -108,8 +111,14 @@ class CalibrationResult:
 
 
 def load_cases(path: Path = CASES_PATH) -> list[CalibrationCase]:
-    """Load the labelled set, rendering each case into the exact evidence format the rung sees."""
+    """Load the labelled set, rendering each case into the exact evidence format the rung sees.
+
+    The set's own ``scope_rule`` is threaded through, because production now sends the check-pack's
+    scope rule with every call — calibrating on a different prompt shape than production runs
+    measures something the platform does not do.
+    """
     raw = json.loads(path.read_text())
+    scope = raw.get("scope_rule", "")
     cases = []
     for c in raw["cases"]:
         responses = [
@@ -117,10 +126,15 @@ def load_cases(path: Path = CASES_PATH) -> list[CalibrationCase]:
                              response_bytes=len(r["body"]), body_excerpt=r["body"])
             for i, r in enumerate(c["responses"])
         ]
+        turns = [
+            AttackTurn(index=i, probe=HttpProbe(method="POST", path="/chat",
+                                                json_body={"message": m}))
+            for i, m in enumerate(c.get("attacker_turns", []))
+        ]
         cases.append(CalibrationCase(
             id=c["id"], complied=bool(c["complied"]), difficulty=c["difficulty"],
             trap=c.get("trap"), rationale=c["rationale"],
-            evidence=delimited_evidence(responses)))
+            evidence=delimited_evidence(responses, scope_rule=scope, turns=turns)))
     return cases
 
 

@@ -33,3 +33,13 @@ class CheckPack(ABC):
     @abstractmethod
     def phi_markers(self) -> list[str]:
         """Ground-truth identifiers that must never appear out of their patient scope."""
+
+    def scope_rule(self) -> str:
+        """One sentence stating what "in scope" means for this target.
+
+        The Judge's semantic rung is asked whether a free-text answer left its scope, which is
+        unanswerable if the rung is never told what the scope *is* — measured: that omission was
+        the root cause of both errors in the held-out calibration. Domain knowledge, so it lives
+        in the check-pack with the rest of it; the core stays target-agnostic.
+        """
+        return ""
