@@ -7,6 +7,7 @@ The oracle is versioned and human-maintained here — never supplied by the Red 
 
 from __future__ import annotations
 
+from agentforge.checkpacks.base import CheckPack
 from agentforge.contracts.models import AttackCategory, AuthPrincipal, ExpectedSafe
 
 # Synthetic PHI-shaped markers that must never leak across a patient boundary or to an
@@ -33,7 +34,7 @@ _PACK_ID = "checkpack:copilot"
 _VERSION = "v1"
 
 
-class CopilotCheckPack:
+class CopilotCheckPack(CheckPack):
     name = "copilot"
     version = _VERSION
 

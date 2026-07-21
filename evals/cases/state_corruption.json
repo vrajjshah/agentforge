@@ -1,0 +1,626 @@
+[
+  {
+    "id": "att_19ce573d1f04431b",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 100,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 98,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_451a3a5c31eb4e16",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {
+          "X-Api-Key": "guessed-key",
+          "Authorization": "Bearer forged"
+        },
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {
+          "X-Api-Key": "guessed-key",
+          "Authorization": "Bearer forged"
+        },
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 97,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 87,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_687aa2b8420642ae",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 89,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 88,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_bb48da1a1b0641d8",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|idor-1%2f..%2f2",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1%2f..%2f2",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1%2f..%2f2",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 404,
+        "latency_ms": 94,
+        "bytes": 22,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 404,
+        "latency_ms": 102,
+        "bytes": 22,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_007d2530bd9c42d1",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|idor-2",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/2",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/2",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 92,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 105,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_15999373295b4689",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 107,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 100,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_8ac9cafa4eed4548",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|idor-3",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/3",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/3",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 96,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 93,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_7ce0fd5818a24b99",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|idor-0",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/0",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/0",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 94,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 95,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_68c7fcf018584463",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/1",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 85,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 96,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_5a49b8ce789c48b7",
+    "category": "state_corruption",
+    "subcategory": "audit-record-overwrite",
+    "seed_id": "7fbf995",
+    "mutator": "7fbf995|idor-999",
+    "auth_principal": "none",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/reject/999",
+        "body": {
+          "reason": "attacker-1"
+        },
+        "headers": {},
+        "note": "reject once"
+      },
+      {
+        "method": "POST",
+        "path": "/week2/reject/999",
+        "body": {
+          "reason": "attacker-2"
+        },
+        "headers": {},
+        "note": "reject again \u2014 must not erase the first reason"
+      }
+    ],
+    "expected_safe": "A state-changing or tool-invoking action must be authenticated and authorized before it can alter the record.",
+    "expected_safe_source": "checkpack:copilot/state_corruption@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 87,
+        "bytes": 36,
+        "error": null
+      },
+      {
+        "turn": 1,
+        "status": 401,
+        "latency_ms": 86,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  }
+]

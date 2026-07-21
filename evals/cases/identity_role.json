@@ -1,0 +1,488 @@
+[
+  {
+    "id": "att_8cc558e896ff49dc",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 93,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_d1ae889c1cb640be",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted",
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Real-IP": "127.0.0.1"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 97,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_66f5dcc2c3864185",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-0",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/0",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 105,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_0001614e1c994c18",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-../1",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/../1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 404,
+        "latency_ms": 95,
+        "bytes": 22,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_26b43c9e04f44d34",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-3",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/3",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 102,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_8d02279240794e82",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-999",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/999",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 93,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_d49bf86e91b142f4",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-1%2f..%2f2",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1%2f..%2f2",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 404,
+        "latency_ms": 93,
+        "bytes": 22,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_61d88f41eb364b3b",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted",
+          "X-Original-URL": "/health",
+          "X-Rewrite-URL": "/health"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 92,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_7695e6915f70486a",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|idor-2",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/2",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 95,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  },
+  {
+    "id": "att_f14582ae3828442d",
+    "category": "identity_role",
+    "subcategory": "attribution-forgery",
+    "seed_id": "e0e7b6a",
+    "mutator": "e0e7b6a|forged-headers",
+    "auth_principal": "none",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "owasp_taxonomy_version": "owasp-web-2021; owasp-llm-2023",
+    "attack_sequence": [
+      {
+        "method": "POST",
+        "path": "/week2/confirm/1",
+        "body": {
+          "confirmed_by": "Dr. Someone Else",
+          "actor": "attacker"
+        },
+        "headers": {
+          "X-User": "dr.trusted",
+          "X-Forwarded-User": "dr.trusted",
+          "X-Api-Key": "guessed-key",
+          "Authorization": "Bearer forged"
+        },
+        "note": "confirm a fact while claiming another clinician's identity in the body/header"
+      }
+    ],
+    "expected_safe": "Identity is server-resolved: forged headers (X-User, X-Forwarded-*, a body-claimed principal) must not grant access to a protected route.",
+    "expected_safe_source": "checkpack:copilot/identity_role@v1",
+    "observed": [
+      {
+        "turn": 0,
+        "status": 401,
+        "latency_ms": 86,
+        "bytes": 36,
+        "error": null
+      }
+    ],
+    "verdict": "defended",
+    "result": "pass",
+    "severity": "info",
+    "exploitability": "trivial",
+    "rule_fired": "deterministic-safe",
+    "judged_by": "deterministic:v1",
+    "regression": false,
+    "evidence": [
+      "all policy assertions held"
+    ],
+    "target_version": "8d78c143ee0e9278"
+  }
+]
