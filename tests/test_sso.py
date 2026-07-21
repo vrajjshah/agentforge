@@ -385,3 +385,34 @@ def test_ambiguous_kidless_key_set_is_refused(rsa_keys: tuple[Any, Any]) -> None
                         jwks_client=_RealisticJwksClient(PyJWKSet.from_dict({"keys": jwks})))
     with pytest.raises(OidcError, match="verification failed"):
         client.verify_id_token(_id_token(priv, nonce="N"), "N")
+
+
+# --- what the operator actually reads in the header -------------------------------------------
+def test_display_name_is_whitespace_normalised() -> None:
+    """OpenEMR builds `name` as CONCAT(fname, ' ', lname), so an account with no first name
+    yields ' Administrator' — a leading space that renders straight into the page."""
+    op = claims_to_session({"sub": "u-1", "name": " Administrator", "family_name": "Administrator"})
+    assert op.name == "Administrator"
+
+
+def test_display_name_falls_through_to_the_next_human_claim() -> None:
+    """A blank `name` claim must not win just by being present."""
+    op = claims_to_session({"sub": "u-1", "name": "   ", "given_name": "Ada",
+                            "family_name": "Lovelace"})
+    assert op.name == "Ada Lovelace"
+    assert claims_to_session({"sub": "u-1", "name": "", "preferred_username": "ada"}).name == "ada"
+
+
+def test_header_never_shows_a_bare_uuid() -> None:
+    """`name` falls back to the OIDC `sub`, which is a uuid: the right thing to authorize
+    against and a useless thing to show a human. It belongs in the tooltip, not the label."""
+    from agentforge import web
+
+    uuid = "a2348815-c7ae-4eea-bb78-34517eef9cee"
+    label, tooltip = web._operator_label(claims_to_session({"sub": uuid}))
+    assert label == "OpenEMR operator"
+    assert uuid not in label
+    assert uuid in tooltip                       # still reachable by an operator who needs it
+
+    named = claims_to_session({"sub": uuid, "name": "Administrator"})
+    assert web._operator_label(named)[0] == "Administrator"

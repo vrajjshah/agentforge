@@ -171,11 +171,17 @@ class OidcClient:
 
 def claims_to_session(claims: dict[str, Any]) -> OperatorSession:
     """Map verified id_token claims to an OperatorSession (server-resolved identity)."""
-    name = (claims.get("name")
-            or " ".join(x for x in (claims.get("given_name"), claims.get("family_name")) if x)
-            or claims.get("preferred_username")
-            or claims.get("email")
-            or claims.get("sub", "operator"))
+    # Whitespace-collapsed, because an IdP's idea of a full name is whatever its SQL produced:
+    # OpenEMR builds this as CONCAT(fname, ' ', lname), so an account with no first name yields
+    # " Administrator" — a leading space that renders straight into the page.
+    def _clean(value: object) -> str:
+        return " ".join(str(value).split()) if value else ""
+
+    name = (_clean(claims.get("name"))
+            or _clean(f"{claims.get('given_name') or ''} {claims.get('family_name') or ''}")
+            or _clean(claims.get("preferred_username"))
+            or _clean(claims.get("email"))
+            or _clean(claims.get("sub")))
     roles = claims.get("roles") or claims.get("role") or claims.get("groups") or []
     if isinstance(roles, str):
         roles = [roles]

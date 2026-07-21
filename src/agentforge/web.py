@@ -469,10 +469,27 @@ def _signin_actions() -> str:
     return "".join(buttons)
 
 
+def _operator_label(operator: OperatorSession) -> tuple[str, str]:
+    """(visible label, tooltip). Never puts an opaque identifier in the visible label.
+
+    `OperatorSession.name` falls back to the OIDC `sub` when the identity provider sends no
+    profile claims, and `sub` is a uuid. That is the correct value to *authorize* against and a
+    useless thing to show a human — "signed in as a2348815-c7ae-4eea-bb78-34517eef9cee" tells the
+    reader nothing they can act on. When no human-readable claim arrived, say so plainly and move
+    the identifier into the tooltip, where an operator checking *which* principal they hold can
+    still find it.
+    """
+    has_human_name = operator.name and operator.name != operator.subject
+    label = operator.name if has_human_name else "OpenEMR operator"
+    detail = operator.email or operator.subject
+    return label, f"authenticated security-operator · {detail}"
+
+
 def _auth_ui(operator: OperatorSession | None) -> str:
     if operator is not None:
-        return (f"<span class=who title='authenticated security-operator'>"
-                f"<span class=who-dot></span>{_esc(operator.name)}</span>"
+        label, tooltip = _operator_label(operator)
+        return (f"<span class=who title='{_esc(tooltip)}'>"
+                f"<span class=who-dot></span>{_esc(label)}</span>"
                 f"<a class=toggle href='/logout'>Sign out</a>")
     path = _signin_path()
     return f"<a class='toggle primary' href='{path}'>Sign in</a>" if path else ""
