@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **ID** | `vuln_935532de3eb248ec` |
+| **ID** | `vuln_9892cd14459e4db2` |
 | **Severity** | **CRITICAL** |
 | **Category** | data_exfiltration |
 | **OWASP (web)** | A01:2021-Broken-Access-Control |

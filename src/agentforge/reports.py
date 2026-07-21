@@ -34,7 +34,7 @@ from agentforge.contracts.models import (
 from agentforge.demo.vulnerable_target import build_target
 from agentforge.mutation.engine import MutationEngine
 from agentforge.regression import RegressionHarness
-from agentforge.seeds.seeds import seed_by_id
+from agentforge.seeds.seeds import Seed, seed_by_id
 from agentforge.stores.vulndb import VulnDB
 
 # (seed id, fix commit, principal) for the three reported vulns.
@@ -52,10 +52,16 @@ def _redteam(settings: Settings, vulnerable: bool) -> RedTeamAgent:
     return RedTeamAgent(adapter=adapter, checkpack=CopilotCheckPack(), engine=MutationEngine())
 
 
+def _require_seed(seed_id: str) -> Seed:
+    seed = seed_by_id(seed_id)
+    if seed is None:
+        raise ValueError(f"unknown seed id {seed_id!r}")
+    return seed
+
+
 def _canonical_attempt(redteam: RedTeamAgent, seed_id: str, principal: AuthPrincipal,
                        version: str) -> AttackAttempt:
-    seed = seed_by_id(seed_id)
-    assert seed is not None
+    seed = _require_seed(seed_id)
     campaign = Campaign(name=f"report-{seed_id}", category=seed.category, target_id="copilot-demo",
                         seed_ids=[seed_id], auth_principals=[principal], max_attempts=50)
     attempts = redteam.generate(campaign, version)
@@ -80,8 +86,7 @@ async def generate_reports(settings: Settings, out_dir: Path) -> list[Path]:
     written: list[Path] = []
     index: list[dict[str, str]] = []
     for seed_id, fix_commit, principal in _REPORTED:
-        seed = seed_by_id(seed_id)
-        assert seed is not None
+        seed = _require_seed(seed_id)
         campaign = Campaign(name=f"report-{seed_id}", category=seed.category,
                             target_id="copilot-demo", seed_ids=[seed_id],
                             auth_principals=[principal], max_attempts=50)

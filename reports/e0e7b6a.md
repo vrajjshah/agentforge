@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **ID** | `vuln_c34d911cf5404271` |
+| **ID** | `vuln_02dda9642790469b` |
 | **Severity** | **HIGH** |
 | **Category** | identity_role |
 | **OWASP (web)** | A01:2021-Broken-Access-Control |
