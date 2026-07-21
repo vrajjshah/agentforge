@@ -58,6 +58,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Test factories use the base-dict + .update(kw) pattern for parametric fixtures.
 "tests/**" = ["C408"]
+# web.py is dominated by an inline HTML/CSS template (self-contained dashboard, no CDN); its long
+# CSS declarations and the favicon data-URI can't wrap, and typographic chars (×) are intentional.
+"src/agentforge/web.py" = ["E501", "RUF001"]
 
 [tool.mypy]
 python_version = "3.12"

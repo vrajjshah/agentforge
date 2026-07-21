@@ -1,10 +1,11 @@
 """AgentForge web service — the deployed observability dashboard (a submission artifact).
 
-One self-contained page answering the six observability questions: categories tested + counts,
+One self-contained page answering the six observability questions — categories tested + counts,
 pass/fail rate, resilience over target versions, open/in-progress/resolved findings, run cost, and
-recent agent activity. Data comes from a committed ``evals/dashboard.json`` (rebuilt by
-``agentforge dashboard``), so the page needs no database and makes no live calls to render. All
-CSS/JS is inlined — a security dashboard must not phone out to a third-party CDN.
+recent agent activity — plus a testing-the-tester self-test and a cost-at-scale projection. Data
+comes from a committed ``evals/dashboard.json`` (rebuilt by ``agentforge dashboard``), so the page
+needs no database and makes no live calls to render. All CSS/JS is inlined — a security dashboard
+must not phone out to a third-party CDN, and findings data must not leave the platform.
 """
 
 from __future__ import annotations
@@ -76,15 +77,8 @@ async def report(name: str) -> HTMLResponse:
     path = _REPORTS / safe
     if not safe.endswith(".md") or not path.exists():
         raise HTTPException(status_code=404, detail="report not found")
-    md = path.read_text()
-    page = ("<!doctype html><meta charset=utf-8><title>" + html.escape(safe) + "</title>"
-            "<style>body{max-width:820px;margin:40px auto;padding:0 20px;"
-            "font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.55;"
-            "background:#0b1220;color:#e6edf6}pre{white-space:pre-wrap;font-family:ui-monospace,"
-            "Menlo,monospace;font-size:13px}a{color:#60a5fa}"
-            "@media(prefers-color-scheme:light){body{background:#fff;color:#0f172a}}</style>"
-            "<p><a href='/'>← dashboard</a></p><pre>" + html.escape(md) + "</pre>")
-    return HTMLResponse(page)
+    return HTMLResponse(_REPORT_PAGE.replace("__NAME__", html.escape(safe))
+                        .replace("__BODY__", html.escape(path.read_text())))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -93,65 +87,114 @@ async def dashboard() -> HTMLResponse:
 
 
 # --------------------------------------------------------------------------------------
-# Rendering (plain string building — no external templates, no CDN)
+# Rendering — plain string building, no external templates or CDN
 # --------------------------------------------------------------------------------------
 def _esc(v: object) -> str:
     return html.escape(str(v))
 
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-_SEV_CLASS = {"critical": "crit", "high": "high", "medium": "med", "low": "low", "info": "info"}
 
 
-def _stat(label: str, value: str, sub: str = "") -> str:
-    sub_html = f"<div class=st-sub>{_esc(sub)}</div>" if sub else ""
-    return (f"<div class=stat><div class=st-k>{_esc(label)}</div>"
-            f"<div class=st-v>{_esc(value)}</div>{sub_html}</div>")
+def _sev_pill(sev: str) -> str:
+    return f"<span class='pill sev-{_esc(sev)}'><span class=dot></span>{_esc(sev.upper())}</span>"
+
+
+def _status_pill(status: str) -> str:
+    good = {"held", "resolved", "closed", "defense_held"}
+    warn = {"in_progress", "confirmed", "triaged", "partial"}
+    cls = "ok" if status in good else ("warn" if status in warn else "bad" if status == "open"
+                                       else "muted")
+    label = {"closed": "resolved", "held": "defense held",
+             "defense_held": "defense held"}.get(status, status.replace("_", " "))
+    return f"<span class='pill st-{cls}'>{_esc(label)}</span>"
+
+
+def _stat(label: str, value: str, sub: str = "", tone: str = "") -> str:
+    sub_html = f"<div class=s-sub>{_esc(sub)}</div>" if sub else ""
+    return (f"<div class='stat {tone}'><div class=s-k>{_esc(label)}</div>"
+            f"<div class=s-v>{_esc(value)}</div>{sub_html}</div>")
 
 
 def _coverage_rows(coverage: dict[str, Any]) -> str:
     rows = []
     for cat, m in coverage.items():
-        total = m.get("total", 0) or 1
-        passed = m.get("pass_defended", 0)
-        pct = round(100 * passed / total)
-        exploited = m.get("fail_exploited", 0)
-        badge = _status_badge("held" if exploited == 0 else "findings")
-        rows.append(
-            f"<tr><td><b>{_esc(cat)}</b></td>"
-            f"<td class=num>{m.get('total', 0)}</td>"
-            f"<td class=num good-t>{passed}</td>"
-            f"<td class=num crit-t>{exploited}</td>"
-            f"<td class=num warn-t>{m.get('partial', 0)}</td>"
-            f"<td class=num muted>{m.get('inconclusive', 0)}</td>"
-            f"<td class=owasp>{_esc(', '.join(m.get('owasp_web', [])))}</td>"
-            f"<td class=owasp>{_esc(', '.join(m.get('owasp_llm', [])))}</td>"
-            f"<td><div class=meter title='{pct}% defended'>"
-            f"<span style='width:{pct}%'></span></div></td>"
-            f"<td>{badge}</td></tr>"
+        total = max(m.get("total", 0), 1)
+        segs = [("defended", m.get("pass_defended", 0), "ok"),
+                ("exploited", m.get("fail_exploited", 0), "bad"),
+                ("partial", m.get("partial", 0), "warn"),
+                ("inconclusive", m.get("inconclusive", 0), "muted")]
+        bar = "".join(
+            f"<span class='seg seg-{c}' style='width:{100 * n / total:.1f}%' "
+            f"title='{n} {name}'></span>"
+            for name, n, c in segs if n
         )
-    return "".join(rows) or "<tr><td colspan=10 class=muted>no coverage data</td></tr>"
+        exploited = m.get("fail_exploited", 0)
+        status = _status_pill("held" if exploited == 0 else "open")
+        rows.append(
+            f"<tr><td><b>{_esc(cat.replace('_', ' '))}</b></td>"
+            f"<td class=bar-cell><div class=bar>{bar}</div></td>"
+            f"<td class=num>{m.get('total', 0)}</td>"
+            f"<td class=num ok-t>{m.get('pass_defended', 0)}</td>"
+            f"<td class=num bad-t>{exploited}</td>"
+            f"<td class=owasp>{_esc(', '.join(m.get('owasp_web', [])))} · "
+            f"{_esc(', '.join(m.get('owasp_llm', [])))}</td>"
+            f"<td>{status}</td></tr>"
+        )
+    return "".join(rows) or "<tr><td colspan=7 class=muted>no coverage data yet</td></tr>"
 
 
 def _findings_rows(findings: list[dict[str, Any]]) -> str:
     rows = []
     for f in sorted(findings, key=lambda x: _SEV_RANK.get(x.get("severity", "info"), 9)):
         sev = f.get("severity", "info")
-        cls = _SEV_CLASS.get(sev, "info")
-        status = f.get("status", "")
-        status_badge = _status_badge("resolved" if status == "closed" else status or "open")
         link = f.get("file", "")
-        title = f"<a href='/reports/{_esc(link)}'>{_esc(f.get('title', ''))}</a>" if link \
-            else _esc(f.get("title", ""))
+        title = (f"<a href='/reports/{_esc(link)}'>{_esc(f.get('title', ''))} ↗</a>"
+                 if link else _esc(f.get("title", "")))
         rows.append(
-            f"<tr><td><span class='sev {cls}'>● {_esc(sev.upper())}</span></td>"
-            f"<td>{_esc(f.get('category', ''))}</td>"
-            f"<td class=owasp>{_esc(f.get('owasp_web', ''))}</td>"
-            f"<td class=owasp>{_esc(f.get('owasp_llm', ''))}</td>"
-            f"<td>{status_badge}</td>"
+            f"<tr class=sev-row-{_esc(sev)}><td>{_sev_pill(sev)}</td>"
+            f"<td>{_esc(f.get('category', '').replace('_', ' '))}</td>"
+            f"<td class=owasp>{_esc(f.get('owasp_web', ''))}<br>{_esc(f.get('owasp_llm', ''))}</td>"
+            f"<td>{_status_pill(f.get('status', 'open'))}</td>"
             f"<td>{title}</td></tr>"
         )
-    return "".join(rows) or "<tr><td colspan=6 class=muted>no findings</td></tr>"
+    return "".join(rows) or "<tr><td colspan=5 class=muted>no findings</td></tr>"
+
+
+def _confusion(conf: dict[str, Any]) -> str:
+    tp, tn, fp, fn = (conf.get(k, 0) for k in ("tp", "tn", "fp", "fn"))
+
+    def cell(n: int, good: bool) -> str:
+        tone = "cok" if good else ("cbad" if n else "cempty")
+        return f"<div class='cm-cell {tone}'><span class=cm-n>{n}</span></div>"
+
+    return (
+        "<div class=confusion>"
+        "<div class=cm-corner></div>"
+        "<div class=cm-h>Judge: EXPLOITED</div><div class=cm-h>Judge: DEFENDED</div>"
+        "<div class=cm-side>vulnerable build<small>should be caught</small></div>"
+        f"{cell(tp, True)}{cell(fn, False)}"
+        "<div class=cm-side>fixed build<small>should hold</small></div>"
+        f"{cell(fp, False)}{cell(tn, True)}"
+        "</div>"
+    )
+
+
+def _cost_rows(proj: list[dict[str, Any]]) -> str:
+    if not proj:
+        return "<tr><td colspan=4 class=muted>—</td></tr>"
+    top = max((r.get("dollars", 0) for r in proj), default=1) or 1
+    rows = []
+    for r in proj:
+        pct = 100 * r.get("dollars", 0) / top
+        rows.append(
+            f"<tr><td class=num>{r.get('n', 0):,}</td>"
+            f"<td class=num>${r.get('dollars', 0):,.2f}</td>"
+            f"<td class=bar-cell><div class=bar><span class='seg seg-cost' "
+            f"style='width:{pct:.1f}%'></span></div></td>"
+            f"<td class=num muted>{_esc(r.get('wall', ''))}</td></tr>"
+        )
+    return "".join(rows)
 
 
 def _activity_rows(activity: list[dict[str, Any]]) -> str:
@@ -166,208 +209,321 @@ def _activity_rows(activity: list[dict[str, Any]]) -> str:
     return "".join(rows) or "<li class=muted>no recent activity</li>"
 
 
-def _status_badge(state: str) -> str:
-    good = {"held", "resolved", "closed"}
-    warn = {"findings", "in_progress", "confirmed", "triaged"}
-    cls = "b-good" if state in good else ("b-warn" if state in warn else "b-crit"
-                                          if state == "open" else "b-muted")
-    label = {"held": "defense held", "resolved": "resolved", "findings": "findings"}.get(
-        state, state.replace("_", " "))
-    return f"<span class='badge {cls}'>{_esc(label)}</span>"
-
-
 def _render(d: dict[str, Any]) -> str:
     if not d:
-        return "<h1>AgentForge</h1><p>No dashboard data. Run <code>agentforge dashboard</code>.</p>"
+        return ("<body style='font-family:system-ui;max-width:640px;margin:80px auto;padding:0 20px'>"
+                "<h1>AgentForge</h1><p>No dashboard data yet. Run "
+                "<code>agentforge dashboard</code> to generate it.</p></body>")
     t = d.get("target", {})
     totals = d.get("totals", {})
     fs = d.get("findings_summary", {})
     cost = d.get("cost", {})
+    st = d.get("self_test", {})
     status_ok = d.get("status") == "defense_held"
-    hero_badge = (f"<span class='badge {'b-good' if status_ok else 'b-crit'} big'>"
-                  f"{'✓ Defense held' if status_ok else '⚠ Findings open'}</span>")
-    resilience = "".join(
-        f"<tr><td class=mono>{_esc(r.get('fingerprint'))}</td>"
-        f"<td class=muted>{_esc(r.get('run_at'))}</td>"
-        f"<td class=num>{_esc(r.get('cases'))}</td>"
-        f"<td class=num good-t>{round(100 * r.get('pass_rate', 0))}%</td></tr>"
-        for r in d.get("resilience", [])
-    )
     pass_pct = round(100 * totals.get("pass_rate", 0))
-    body = _PAGE.replace("__TITLE__", _esc(d.get("title", "AgentForge")))
-    body = body.replace("__HERO_BADGE__", hero_badge)
-    body = body.replace("__TARGET__", _esc(t.get("url", "—")))
-    body = body.replace("__FINGERPRINT__", _esc(t.get("fingerprint", "—")))
-    body = body.replace("__SURFACE__", _esc(t.get("surface", "—")))
-    body = body.replace("__LASTRUN__", _esc(t.get("last_run", "—")))
-    body = body.replace("__STATS__", "".join([
-        _stat("Categories tested", str(totals.get("categories", 0))),
+
+    hero = (f"<span class='pill st-{'ok' if status_ok else 'bad'} lg'>"
+            f"{'✓  Defense held' if status_ok else '⚠  Findings open'}</span>")
+    stats = "".join([
+        _stat("Pass rate", f"{pass_pct}%", "target defended", "accent"),
         _stat("Attack cases", str(totals.get("total", 0)), "authenticated /chat + reads"),
-        _stat("Pass rate", f"{pass_pct}%", "target defended"),
+        _stat("Categories", str(totals.get("categories", 0)), "OWASP dual-mapped"),
         _stat("Open on live target", str(fs.get("open_on_live_target", 0)), "confirmed exploits"),
         _stat("Findings resolved", str(fs.get("resolved", 0)), "fix-validated"),
-        _stat("Live inference cost", f"${cost.get('live_inference_usd', 0)}",
-              f"{cost.get('model_turns', 0)} model turns @ ${cost.get('per_turn_usd', 0)}"),
-    ]))
-    st = d.get("self_test", {})
-    conf = st.get("confusion", {})
-    body = body.replace("__SELFTEST__", "".join([
-        _stat("Precision", f"{st.get('precision', '—')}", "no false alarms on fixed builds"),
-        _stat("Recall", f"{st.get('recall', '—')}", "known vulns caught on vulnerable builds"),
-        _stat("Accuracy", f"{st.get('accuracy', '—')}",
-              f"TP {conf.get('tp', 0)} · TN {conf.get('tn', 0)} · "
-              f"FP {conf.get('fp', 0)} · FN {conf.get('fn', 0)}"),
-    ]))
-    body = body.replace("__COSTPROJ__", "".join(
-        f"<tr><td class=num>{r.get('n'):,}</td><td class=num>${r.get('dollars'):,.2f}</td>"
-        f"<td class=num muted>{_esc(r.get('wall'))}</td></tr>"
-        for r in d.get("cost_projection", [])
-    ) or "<tr><td colspan=3 class=muted>—</td></tr>")
-    body = body.replace("__COVERAGE__", _coverage_rows(d.get("coverage", {})))
-    body = body.replace("__FINDINGS__", _findings_rows(d.get("findings", [])))
-    body = body.replace("__RESILIENCE__", resilience or "<tr><td colspan=4 class=muted>—</td></tr>")
-    body = body.replace("__ACTIVITY__", _activity_rows(d.get("agent_activity", [])))
-    body = body.replace("__TAXONOMY__", _esc(d.get("taxonomy_version", "—")))
-    body = body.replace("__GENERATED__", _esc(d.get("generated_at", "—")))
-    return body
+        _stat("Live cost", f"${cost.get('live_inference_usd', 0)}",
+              f"{cost.get('model_turns', 0)} model turns"),
+    ])
+    selftest = "".join([
+        _stat("Precision", str(st.get("precision", "—")), "no false alarms"),
+        _stat("Recall", str(st.get("recall", "—")), "no missed vulns"),
+        _stat("Accuracy", str(st.get("accuracy", "—")), "vs. known ground truth"),
+    ])
+    resilience = "".join(
+        f"<tr><td class=mono>{_esc(r.get('fingerprint'))}</td>"
+        f"<td class=muted>{_esc(str(r.get('run_at'))[:19].replace('T', ' '))}</td>"
+        f"<td class=num>{_esc(r.get('cases'))}</td>"
+        f"<td class=num ok-t>{round(100 * r.get('pass_rate', 0))}%</td></tr>"
+        for r in d.get("resilience", [])
+    ) or "<tr><td colspan=4 class=muted>—</td></tr>"
+
+    page = _PAGE
+    for k, v in {
+        "__TITLE__": _esc(d.get("title", "AgentForge")),
+        "__HERO__": hero,
+        "__TARGET__": _esc(t.get("url", "—")),
+        "__FINGERPRINT__": _esc(t.get("fingerprint", "—")),
+        "__SURFACE__": _esc(t.get("surface", "—")),
+        "__LASTRUN__": _esc(str(t.get("last_run", "—"))[:19].replace("T", " ")),
+        "__STATS__": stats,
+        "__FINDINGS__": _findings_rows(d.get("findings", [])),
+        "__COVERAGE__": _coverage_rows(d.get("coverage", {})),
+        "__SELFTEST__": selftest,
+        "__CONFUSION__": _confusion(st.get("confusion", {})),
+        "__RESILIENCE__": resilience,
+        "__COST__": _cost_rows(d.get("cost_projection", [])),
+        "__ACTIVITY__": _activity_rows(d.get("agent_activity", [])),
+        "__TAXONOMY__": _esc(d.get("taxonomy_version", "—")),
+        "__GENERATED__": _esc(str(d.get("generated_at", "—"))[:19].replace("T", " ")),
+    }.items():
+        page = page.replace(k, v)
+    return page
+
+
+_LOGO = (
+    "<svg class=logo viewBox='0 0 32 32' width=30 height=30 aria-hidden=true>"
+    "<rect x=2 y=2 width=28 height=28 rx=8 fill='var(--accent)'/>"
+    "<circle cx=16 cy=16 r=7 fill=none stroke=white stroke-width=2/>"
+    "<circle cx=16 cy=16 r=2 fill=white/>"
+    "<line x1=16 y1=5 x2=16 y2=9 stroke=white stroke-width=2/>"
+    "<line x1=16 y1=23 x2=16 y2=27 stroke=white stroke-width=2/>"
+    "<line x1=5 y1=16 x2=9 y2=16 stroke=white stroke-width=2/>"
+    "<line x1=23 y1=16 x2=27 y2=16 stroke=white stroke-width=2/></svg>"
+)
+
+_REPORT_PAGE = (
+    "<!doctype html><meta charset=utf-8><title>__NAME__ — AgentForge</title>"
+    "<style>:root{color-scheme:light dark}body{max-width:820px;margin:0 auto;padding:32px 20px;"
+    "font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.6;"
+    "background:#0b1220;color:#e6edf6}a{color:#818cf8;font-family:system-ui}"
+    "pre{white-space:pre-wrap;word-wrap:break-word}"
+    "@media(prefers-color-scheme:light){body{background:#fff;color:#0f172a}}</style>"
+    "<p><a href='/'>← back to dashboard</a></p><pre>__BODY__</pre>"
+)
 
 
 _PAGE = """<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>AgentForge — adversarial security testing</title>
+<title>AgentForge — adversarial security dashboard</title>
+<link rel=icon href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><circle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='2'/><circle cx='16' cy='16' r='2' fill='white'/></svg>">
 <style>
 :root{
- --bg:#f6f7f9; --surface:#ffffff; --line:#e2e6ec; --ink:#0f172a; --ink2:#475569; --muted:#94a3b8;
- --good:#15803d; --good-bg:#dcfce7; --warn:#b45309; --warn-bg:#fef3c7; --crit:#b91c1c;
- --crit-bg:#fee2e2; --accent:#1d4ed8; --meter:#22c55e; --meter-track:#e5e7eb;
- --crit-dot:#dc2626; --high-dot:#ea580c; --med-dot:#d97706; --low-dot:#0891b2; --info-dot:#64748b;
+ --bg:#f6f8fb; --surface:#ffffff; --surface-2:#f1f5f9; --border:#e5eaf0;
+ --ink:#0f172a; --ink-2:#475569; --ink-3:#8a99ad; --accent:#4f46e5; --accent-soft:#eef2ff;
+ --ok:#16a34a; --ok-bg:#dcfce7; --warn:#c2740a; --warn-bg:#fef3c7; --bad:#dc2626; --bad-bg:#fee2e2;
+ --seg-track:#eef1f5;
+ --sev-critical:#dc2626; --sev-high:#ea580c; --sev-medium:#ca8a04; --sev-low:#0891b2; --sev-info:#64748b;
+ --shadow:0 1px 2px rgba(15,23,42,.04),0 1px 3px rgba(15,23,42,.06);
 }
-@media (prefers-color-scheme:dark){:root{
- --bg:#0b1220; --surface:#111a2b; --line:#1f2c3f; --ink:#e6edf6; --ink2:#9fb0c4; --muted:#5f708a;
- --good:#4ade80; --good-bg:#0f2e1d; --warn:#fbbf24; --warn-bg:#33240a; --crit:#f87171;
- --crit-bg:#3a1414; --accent:#60a5fa; --meter:#22c55e; --meter-track:#1f2c3f;
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+ --bg:#080c14; --surface:#0f1826; --surface-2:#141f30; --border:#1e2b3d;
+ --ink:#e6edf7; --ink-2:#9fb1c7; --ink-3:#5c6f88; --accent:#818cf8; --accent-soft:#1a2035;
+ --ok:#4ade80; --ok-bg:#0e2a1b; --warn:#fbbf24; --warn-bg:#2e2408; --bad:#f87171; --bad-bg:#331414;
+ --seg-track:#1a2536; --shadow:none;
 }}
-:root[data-theme=dark]{--bg:#0b1220;--surface:#111a2b;--line:#1f2c3f;--ink:#e6edf6;--ink2:#9fb0c4;
- --muted:#5f708a;--good:#4ade80;--good-bg:#0f2e1d;--warn:#fbbf24;--warn-bg:#33240a;--crit:#f87171;
- --crit-bg:#3a1414;--accent:#60a5fa;--meter-track:#1f2c3f;}
-:root[data-theme=light]{--bg:#f6f7f9;--surface:#fff;--line:#e2e6ec;--ink:#0f172a;--ink2:#475569;}
+:root[data-theme=dark]{
+ --bg:#080c14; --surface:#0f1826; --surface-2:#141f30; --border:#1e2b3d;
+ --ink:#e6edf7; --ink-2:#9fb1c7; --ink-3:#5c6f88; --accent:#818cf8; --accent-soft:#1a2035;
+ --ok:#4ade80; --ok-bg:#0e2a1b; --warn:#fbbf24; --warn-bg:#2e2408; --bad:#f87171; --bad-bg:#331414;
+ --seg-track:#1a2536; --shadow:none;
+ --sev-critical:#f87171; --sev-high:#fb923c; --sev-medium:#facc15; --sev-low:#22d3ee; --sev-info:#94a3b8;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
- font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+body{margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
  font-size:14px;line-height:1.5}
-.wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px}
-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
-h1{font-size:20px;margin:0 0 2px} .tag{color:var(--ink2);font-size:14px;max-width:640px}
-h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);
- margin:30px 0 10px;font-weight:700}
-.meta{color:var(--muted);font-size:12.5px;margin-top:6px}
-.meta b{color:var(--ink2);font-weight:600} .mono{font-family:ui-monospace,Menlo,monospace}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-top:20px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.st-k{color:var(--ink2);font-size:12px;text-transform:uppercase;letter-spacing:.03em}
-.st-v{font-size:24px;font-weight:750;margin-top:4px}
-.st-sub{color:var(--muted);font-size:11.5px;margin-top:3px}
-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
- border-radius:12px;overflow:hidden}
-.scroll{overflow-x:auto}
-th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px;
- white-space:nowrap}
-tr:last-child td{border-bottom:none}
-th{background:color-mix(in srgb,var(--surface) 70%,var(--bg));color:var(--ink2);
- font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-td.num{text-align:right;font-variant-numeric:tabular-nums} .muted{color:var(--muted)}
-.good-t{color:var(--good)} .warn-t{color:var(--warn)} .crit-t{color:var(--crit)}
-.owasp{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink2);white-space:normal}
-.meter{width:120px;height:8px;border-radius:5px;background:var(--meter-track);overflow:hidden}
-.meter span{display:block;height:100%;background:var(--meter);border-radius:5px}
-.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;
- white-space:nowrap}
-.badge.big{font-size:13px;padding:5px 13px}
-.b-good{background:var(--good-bg);color:var(--good)}
-.b-warn{background:var(--warn-bg);color:var(--warn)}
-.b-crit{background:var(--crit-bg);color:var(--crit)}
-.b-muted{background:var(--line);color:var(--ink2)}
-.sev{font-weight:700;font-size:12px} .sev.crit{color:var(--crit-dot)}
-.sev.high{color:var(--high-dot)}
-.sev.med{color:var(--med-dot)} .sev.low{color:var(--low-dot)} .sev.info{color:var(--info-dot)}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 22px 64px}
 a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-ul.timeline{list-style:none;margin:0;padding:0;background:var(--surface);
- border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.muted{color:var(--ink-3)} .num{text-align:right;font-variant-numeric:tabular-nums}
+.ok-t{color:var(--ok)} .bad-t{color:var(--bad)}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+ padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{border-radius:8px;flex:none}
+.brand h1{font-size:19px;margin:0;letter-spacing:-.01em}
+.brand .tag{color:var(--ink-2);font-size:12.5px;margin-top:1px}
+.hgroup{display:flex;align-items:center;gap:10px}
+.meta{color:var(--ink-3);font-size:12px;margin:-6px 0 22px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--ink-2);font-weight:600}
+.toggle{background:var(--surface);border:1px solid var(--border);color:var(--ink-2);border-radius:8px;
+ padding:6px 11px;cursor:pointer;font-size:12px;font-weight:600;line-height:1}
+.toggle:hover{border-color:var(--accent);color:var(--accent)}
+
+/* section headers */
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);
+ margin:32px 0 12px;font-weight:700;display:flex;align-items:center;gap:8px}
+h2::after{content:"";flex:1;height:1px;background:var(--border)}
+.lead{color:var(--ink-2);font-size:12.5px;margin:-4px 0 14px;max-width:760px;line-height:1.55}
+
+/* stat tiles */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;
+ box-shadow:var(--shadow)}
+.stat.accent{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}
+.s-k{color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.s-v{font-size:26px;font-weight:750;margin-top:5px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat.accent .s-v{color:var(--accent)}
+.s-sub{color:var(--ink-3);font-size:11.5px;margin-top:2px}
+
+/* cards + tables */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+ box-shadow:var(--shadow)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;
+ white-space:nowrap;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface-2)}
+th{background:var(--surface-2);color:var(--ink-3);font-size:10.5px;text-transform:uppercase;
+ letter-spacing:.05em;font-weight:700}
+.owasp{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--ink-2);white-space:normal;
+ line-height:1.35}
+.sev-row-critical{box-shadow:inset 3px 0 0 var(--sev-critical)}
+.sev-row-high{box-shadow:inset 3px 0 0 var(--sev-high)}
+.sev-row-medium{box-shadow:inset 3px 0 0 var(--sev-medium)}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+ font-size:11.5px;font-weight:650;white-space:nowrap;line-height:1.3}
+.pill.lg{font-size:13.5px;padding:6px 14px}
+.st-ok{background:var(--ok-bg);color:var(--ok)} .st-warn{background:var(--warn-bg);color:var(--warn)}
+.st-bad{background:var(--bad-bg);color:var(--bad)} .st-muted{background:var(--surface-2);color:var(--ink-2)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.sev-critical{background:var(--bad-bg);color:var(--sev-critical)}
+.sev-high{background:var(--warn-bg);color:var(--sev-high)}
+.sev-medium{background:var(--warn-bg);color:var(--sev-medium)}
+.sev-low{background:var(--surface-2);color:var(--sev-low)}
+.sev-info{background:var(--surface-2);color:var(--sev-info)}
+
+/* segmented bars */
+.bar-cell{width:38%;min-width:140px}
+.bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--seg-track)}
+.seg{height:100%} .seg+.seg{box-shadow:inset 1px 0 0 var(--surface)}
+.seg-defended,.seg-ok{background:var(--ok)} .seg-exploited,.seg-bad{background:var(--bad)}
+.seg-partial,.seg-warn{background:var(--warn)} .seg-inconclusive,.seg-muted{background:var(--ink-3)}
+.seg-cost{background:var(--accent)}
+
+/* confusion matrix */
+.selftest-grid{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}
+@media (max-width:720px){.selftest-grid{grid-template-columns:1fr}}
+.confusion{display:grid;grid-template-columns:120px 88px 88px;grid-auto-rows:auto;gap:6px;
+ background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;
+ box-shadow:var(--shadow)}
+.cm-corner{}
+.cm-h{font-size:10px;font-weight:700;color:var(--ink-3);text-transform:uppercase;text-align:center;
+ align-self:end;letter-spacing:.03em}
+.cm-side{font-size:11px;font-weight:650;color:var(--ink-2);display:flex;flex-direction:column;
+ justify-content:center;line-height:1.3} .cm-side small{color:var(--ink-3);font-weight:400;font-size:10px}
+.cm-cell{height:56px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+ font-variant-numeric:tabular-nums}
+.cm-n{font-size:22px;font-weight:750}
+.cok{background:var(--ok-bg);color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 30%,transparent)}
+.cbad{background:var(--bad-bg);color:var(--bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bad) 35%,transparent)}
+.cempty{background:var(--surface-2);color:var(--ink-3)}
+
+/* timeline */
+ul.timeline{list-style:none;margin:0;padding:0}
 ul.timeline li{display:flex;align-items:center;gap:12px;padding:9px 14px;
- border-bottom:1px solid var(--line);font-size:13px}
-ul.timeline li:last-child{border-bottom:none}
-.agent{min-width:104px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
- padding:2px 8px;border-radius:6px;text-align:center}
-.a-orchestrator{background:#eff6ff;color:#1d4ed8} .a-redteam{background:#fef2f2;color:#b91c1c}
-.a-judge{background:#f0fdf4;color:#15803d} .a-documentation{background:#faf5ff;color:#7e22ce}
-@media (prefers-color-scheme:dark){.a-orchestrator{background:#132036;color:#93c5fd}
-.a-redteam{background:#2a1516;color:#fca5a5}.a-judge{background:#122616;color:#86efac}
-.a-documentation{background:#241633;color:#d8b4fe}}
-.act-ev{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--ink2);
- min-width:130px}
+ border-bottom:1px solid var(--border);font-size:12.5px}
+.card ul.timeline li:last-child{border-bottom:none}
+.agent{min-width:104px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+ padding:3px 8px;border-radius:6px;text-align:center;flex:none}
+.a-orchestrator{background:var(--accent-soft);color:var(--accent)}
+.a-redteam{background:var(--bad-bg);color:var(--bad)}
+.a-judge{background:var(--ok-bg);color:var(--ok)}
+.a-documentation{background:var(--warn-bg);color:var(--warn)}
+.act-ev{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink-3);min-width:124px;flex:none}
 .act-detail{color:var(--ink);white-space:normal}
-.note{color:var(--muted);font-size:12px;margin-top:26px;line-height:1.6;
- border-top:1px solid var(--line);padding-top:16px}
-.toggle{background:var(--surface);border:1px solid var(--line);color:var(--ink2);border-radius:8px;
- padding:5px 10px;cursor:pointer;font-size:12px}
+
+/* two-column grid for mid sections */
+.cols{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+
+.foot{color:var(--ink-3);font-size:12px;margin-top:34px;line-height:1.65;border-top:1px solid var(--border);
+ padding-top:18px}
+.foot a{color:var(--ink-2)} .foot code{background:var(--surface-2);padding:1px 5px;border-radius:4px}
 </style></head><body><div class=wrap>
+
 <header>
- <div>
-  <h1>AgentForge</h1>
-  <div class=tag>__TITLE__</div>
-  <div class=meta>Target <b class=mono>__TARGET__</b>
-   · fingerprint <b class=mono>__FINGERPRINT__</b>
-   · surface <b>__SURFACE__</b> · last run <b>__LASTRUN__</b></div>
+ <div class=brand>__LOGO__
+  <div><h1>AgentForge</h1><div class=tag>__TITLE__</div></div>
  </div>
- <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-  __HERO_BADGE__
-  <button class=toggle
-   onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'"
-   >toggle theme</button>
+ <div class=hgroup>__HERO__
+  <button class=toggle id=themeBtn aria-label="Toggle color theme">◐ Theme</button>
  </div>
 </header>
 
+<div class=meta>
+ <span>Target <b class=mono>__TARGET__</b></span>
+ <span>Fingerprint <b class=mono>__FINGERPRINT__</b></span>
+ <span>Surface <b>__SURFACE__</b></span>
+ <span>Last run <b>__LASTRUN__</b></span>
+</div>
+
 <div class=stats>__STATS__</div>
 
-<h2>Coverage by attack category</h2>
-<div class=scroll><table><thead><tr>
- <th>Category</th><th class=num>Cases</th><th class=num>Defended</th><th class=num>Exploited</th>
- <th class=num>Partial</th><th class=num>Inconcl.</th><th>OWASP web</th><th>OWASP LLM</th>
- <th>Defended</th><th>Status</th></tr></thead><tbody>__COVERAGE__</tbody></table></div>
-
 <h2>Findings</h2>
-<div class=scroll><table><thead><tr>
- <th>Severity</th><th>Category</th><th>OWASP web</th><th>OWASP LLM</th><th>Status</th>
- <th>Report</th></tr></thead><tbody>__FINDINGS__</tbody></table></div>
+<div class=lead>What a security reviewer scans first. Because the live target is hardened, these are
+ demonstrated on an ephemeral, isolated vulnerable build and each is fix-validated by the regression
+ harness — reproducible from the linked report alone.</div>
+<div class="card scroll"><table><thead><tr>
+ <th>Severity</th><th>Category</th><th>OWASP (web / LLM)</th><th>Status</th><th>Report</th>
+ </tr></thead><tbody>__FINDINGS__</tbody></table></div>
 
-<h2>Resilience over target versions</h2>
-<div class=scroll><table><thead><tr>
- <th>Target fingerprint</th><th>Run</th><th class=num>Cases</th><th class=num>Pass rate</th>
- </tr></thead><tbody>__RESILIENCE__</tbody></table></div>
+<h2>Coverage by attack category</h2>
+<div class="card scroll"><table><thead><tr>
+ <th>Category</th><th>Outcome</th><th class=num>Cases</th><th class=num>Defended</th>
+ <th class=num>Exploited</th><th>OWASP (web · LLM)</th><th>Status</th>
+ </tr></thead><tbody>__COVERAGE__</tbody></table></div>
 
-<h2>Platform self-test (testing the tester)</h2>
-<div class=stats>__SELFTEST__</div>
-<p class=meta>The platform's own verdicts scored against known ground truth: each seeded defect run
- against a build where it is present (should be caught) and one where it is fixed (should hold).
- Perfect scores mean no missed vulns and no false alarms — the finding productivity that makes the
- "defense held" result above trustworthy.</p>
+<h2>Platform self-test — testing the tester</h2>
+<div class=lead>The platform's own verdicts scored against known ground truth: each seeded defect is
+ run against a build where it is present (should be caught) and one where it is fixed (should hold).
+ Perfect scores mean no missed vulnerabilities and no false alarms — the finding productivity that
+ makes the "defense held" result trustworthy rather than an artifact of a lazy judge.</div>
+<div class=selftest-grid>
+ <div class=stats>__SELFTEST__</div>
+ __CONFUSION__
+</div>
 
-<h2>Projected cost at scale</h2>
-<div class=scroll><table><thead><tr>
- <th class=num>Attack runs</th><th class=num>Est. cost</th><th class=num>Wall-clock</th>
- </tr></thead><tbody>__COSTPROJ__</tbody></table></div>
-<p class=meta>Not cost-per-token times n: deterministic generation is free, the Judge is triaged,
- and wall-clock (not dollars) is the binding constraint — see
- <code>docs/COST_ANALYSIS.md</code>.</p>
+<div class=cols>
+ <div>
+  <h2>Projected cost at scale</h2>
+  <div class="card scroll"><table><thead><tr>
+   <th class=num>Attack runs</th><th class=num>Est. cost</th><th>Relative</th><th class=num>Wall-clock</th>
+   </tr></thead><tbody>__COST__</tbody></table></div>
+  <div class=lead style="margin-top:10px">Not cost-per-token × n: deterministic generation is free,
+   the Judge is triaged, and wall-clock (not dollars) is the binding constraint. Full model in
+   <code>docs/COST_ANALYSIS.md</code>.</div>
+ </div>
+ <div>
+  <h2>Resilience over target versions</h2>
+  <div class="card scroll"><table><thead><tr>
+   <th>Fingerprint</th><th>Run</th><th class=num>Cases</th><th class=num>Pass</th>
+   </tr></thead><tbody>__RESILIENCE__</tbody></table></div>
+  <div class=lead style="margin-top:10px">The target is content-fingerprinted every run; a new
+   fingerprint triggers a full regression pass, so resilience is tracked per version, not per date.</div>
+ </div>
+</div>
 
 <h2>Recent agent activity</h2>
-<ul class=timeline>__ACTIVITY__</ul>
+<div class=lead>A real captured multi-agent trace — the Orchestrator routes to the Red Team, the Judge
+ evaluates independently, and the Documentation agent drafts on a confirmed exploit.</div>
+<div class=card><ul class=timeline>__ACTIVITY__</ul></div>
 
-<div class=note>
+<div class=foot>
  OWASP taxonomy __TAXONOMY__ · generated __GENERATED__. Every eval case is dual-OWASP-mapped and
  reproducible (fixed-seed generation). Against the hardened live target the honest result is
- "defense held" — a legitimate outcome, not a gap. Findings are demonstrated on an ephemeral,
- isolated vulnerable build and fix-validated by the regression harness. This page is self-contained
- (no external scripts or fonts) and read-only; the attack trigger is RBAC-gated and off by default.
+ <b>defense held</b> — a legitimate outcome, not a gap. Synthetic patient data only; no real PHI.
+ This page is self-contained (no external scripts, fonts, or trackers) and read-only — the attack
+ trigger is RBAC-gated and off by default.
+ <br>API: <a href="/api/dashboard">/api/dashboard</a> · <a href="/api/coverage">/api/coverage</a> ·
+ <a href="/api/target">/api/target</a> · <a href="/health">/health</a>
 </div>
-</div></body></html>"""
+</div>
+<script>
+(function(){
+ var root=document.documentElement, btn=document.getElementById('themeBtn');
+ var saved=localStorage.getItem('af-theme');
+ if(saved) root.setAttribute('data-theme',saved);
+ btn.addEventListener('click',function(){
+  var cur=root.getAttribute('data-theme');
+  if(!cur){cur=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+  var next=cur==='dark'?'light':'dark';
+  root.setAttribute('data-theme',next); localStorage.setItem('af-theme',next);
+ });
+})();
+</script>
+</body></html>""".replace("__LOGO__", _LOGO)
