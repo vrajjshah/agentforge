@@ -174,6 +174,23 @@ def _cmd_sso_register(redirect_uri: str) -> int:
     return 0
 
 
+async def _cmd_loadtest(settings: Settings, args: argparse.Namespace) -> int:
+    from agentforge.loadtest import render_report, run_loadtest
+
+    print(f"running {args.attacks} attacks against the ephemeral build "
+          f"(never the live target)", file=sys.stderr)
+    result = await run_loadtest(args.attacks, args.judge_samples, settings=settings)
+    data = result.to_dict()
+    if args.write_doc:
+        out = _REPO_ROOT / "docs" / "LOAD_TEST.md"
+        out.write_text(render_report(result))
+        print(f"wrote {out.relative_to(_REPO_ROOT)}", file=sys.stderr)
+    print(json.dumps({k: data[k] for k in
+                      ("attacks", "wall_seconds", "attacks_per_second", "phases_ms",
+                       "llm_rung_ms", "storage", "bottleneck")}, indent=2))
+    return 0
+
+
 async def _cmd_judge_calibration(settings: Settings, args: argparse.Namespace) -> int:
     """Score the LLM compliance rung against human labels — the number the deterministic
     self-test cannot produce. Live only; otherwise report the last recorded run."""
@@ -239,6 +256,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("dashboard", help="rebuild evals/dashboard.json for the observability dashboard")
     sub.add_parser("cost", help="regenerate docs/COST_ANALYSIS.md (scaling model)")
     sub.add_parser("inner-loop", help="testing-the-tester eval (precision/recall vs ground truth)")
+    lt = sub.add_parser("loadtest",
+                        help="throughput + per-phase latency against the ephemeral build")
+    lt.add_argument("--attacks", type=int, default=100)
+    lt.add_argument("--judge-samples", type=int, default=0,
+                    help="also time N real Bedrock Judge-rung calls (paid; 0 = off)")
+    lt.add_argument("--write-doc", action="store_true", help="write docs/LOAD_TEST.md")
     cal = sub.add_parser("judge-calibration",
                          help="score the Judge's LLM rung against the human-labelled set")
     cal.add_argument("--live", action="store_true",
@@ -309,6 +332,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"confusion": data["confusion"], "precision": data["precision"],
                           "recall": data["recall"], "accuracy": data["accuracy"]}, indent=2))
         return 0
+    if args.cmd == "loadtest":
+        return asyncio.run(_cmd_loadtest(settings, args))
     if args.cmd == "judge-calibration":
         return asyncio.run(_cmd_judge_calibration(settings, args))
     if args.cmd == "sso-register":

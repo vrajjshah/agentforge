@@ -143,6 +143,15 @@ uv run agentforge cost        # regenerate docs/COST_ANALYSIS.md (scaling model,
   [ARCHITECTURE.md](ARCHITECTURE.md#two-different-accuracy-questions-measured-two-different-ways).
 - **Cost analysis** — real per-unit spend projected to 100 / 1K / 10K / 100K runs, with the
   architectural change at each tier: [docs/COST_ANALYSIS.md](docs/COST_ANALYSIS.md).
+- **Load test** (`agentforge loadtest`) — 100 consecutive attacks against the ephemeral build,
+  never the live target: a sustained burst at a single-worker clinical deployment *is* the
+  denial-of-service attack this platform exists to test for. Result: the deterministic pipeline
+  runs at **~568 attacks/second**, while one call to the Judge's semantic rung costs **~1.3 s at
+  p50** — so firing it on one attack in ten drops throughput to **~7/second** and puts **99% of
+  wall-clock inside that single call**. The bottleneck is not code, it is a network round-trip to
+  a frontier model, so the fixes are triage (keep the ladder cheapest-first so the rung fires only
+  on genuinely ambiguous turns) and bounded concurrency — not a faster machine. Per-phase
+  latencies and baselines in [docs/LOAD_TEST.md](docs/LOAD_TEST.md).
 
 ## Access control (Login with OpenEMR)
 

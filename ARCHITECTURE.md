@@ -247,6 +247,23 @@ Scale inflection points, each naming the architectural change: 100 (single box, 
 workers) → 100K (offline batch generation + triaged judging). Provider rate limits are handled with
 backoff/queue/abort.
 
+**Measured, not assumed** (`agentforge loadtest`, 100 consecutive attacks against the ephemeral
+build — never the live target, since a sustained burst at a single-worker clinical deployment is
+the denial-of-service attack the platform exists to test for). The deterministic pipeline runs at
+**~568 attacks/second**: generation, execution and persistence each take a couple of tenths of a
+millisecond and sit within noise of each other, and the deterministic verdict ladder is effectively
+free at ~1% of the time. One call to the Judge's semantic rung costs **~1.3 s at p50, ~3.2 s at
+p95** — three orders of magnitude more than everything else combined. Firing it on one attack in
+ten drops throughput from 568/s to **~7/s and puts 99% of wall-clock inside that one call**.
+
+That is the whole performance story, and it settles which optimisations are worth anything: the
+bottleneck is a network round-trip to a frontier model, so it is latency-bound, not CPU-bound.
+Triage (keep the ladder cheapest-first so the rung only fires on genuinely ambiguous `/chat` turns)
+and bounded concurrency are the levers; a faster machine is not. Persistence is ~28% of a
+microsecond-scale budget, so the SQLite-commit-per-append cost is real but nowhere near binding —
+batching writes and the Postgres swap are 10K-scale concerns, not today's. Baselines and per-phase
+percentiles: [docs/LOAD_TEST.md](docs/LOAD_TEST.md).
+
 ## Framework that manages agent state/coordination
 
 **LangGraph** — a `StateGraph` with distinct agent nodes, a typed `CampaignState`, conditional edges
