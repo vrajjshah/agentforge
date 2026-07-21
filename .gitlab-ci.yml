@@ -74,7 +74,8 @@ gate:
     - uv sync --frozen
   script:
     # Same order as .githooks/pre-push, cheapest first, so a lint break fails in seconds.
-    - echo "▶ gate:: ruff · mypy --strict · pytest · bandit · pip-audit"
+    # (No banner echo here: an unquoted "a: b" inside a script item is parsed by YAML as a map,
+    # not a string, which is exactly what silently invalidated this file's first version.)
     - uv run ruff check src tests
     - uv run mypy src
     - uv run pytest

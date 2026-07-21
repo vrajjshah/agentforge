@@ -65,14 +65,34 @@ genuinely hermetic. Run with `.env` moved aside and an emptied environment
 (`env -i PATH=… HOME=… uv run pytest`), **all 122 tests pass** — no test depends on a local
 credential, a live target, or a Bedrock call. A green suite here is green on a bare runner too.
 
-**A correction, recorded rather than quietly fixed.** The first version of this file was committed
-without a `workflow:rules` guard. GitLab created a pipeline on every push, each sat with no runner to
-claim it, and each was then marked **failed** — six red pipelines that meant nothing except that the
-project has no runner. That is worse than shipping no CI file: a reviewer sees red and concludes the
-suite is broken, when it passes. The config is now gated behind `RUN_CI == "1"`, which suppresses
-pipeline creation outright, so it claims no result it does not have. The irony is the point — a
-control that reports failure without having executed anything is the same defect this ledger exists
-to catch, and it took being on the receiving end to notice.
+**A correction, recorded rather than quietly fixed — two defects, not one.**
+
+The first version of this file was committed with no `workflow:` guard, so GitLab created a pipeline
+on every push. Six of them, all marked **failed**. That alone is worse than shipping no CI file: a
+reviewer sees red and concludes the suite is broken, when it passes.
+
+Investigating *why* they failed turned up the second and worse defect: **the config was invalid the
+whole time.** Every pipeline had zero jobs. The cause was one line — a banner
+`echo "... gate:: ruff ..."` in the `script:` list. An unquoted `a: b` inside a YAML sequence item
+parses as a *map*, not a string, so GitLab rejected `jobs:gate:script` and produced a pipeline with
+nothing in it. The file had been reviewed, committed, and documented in this ledger as merely
+"unverified for lack of a runner". It was in fact broken, and the ledger said so with more
+confidence than it had earned.
+
+**What made it findable without a runner:** the instance's own `POST /projects/:id/ci/lint`
+endpoint, which parses the config exactly as the pipeline would. That is a genuine verification
+path for a project that has no runner, and it should have been used before the file was ever
+committed. It now reports `valid: true`.
+
+The file is additionally gated behind `RUN_CI == "1"`, which suppresses pipeline creation outright,
+so it cannot claim a result it does not have. Both defects are the same failure this ledger exists
+to catch — a control reporting an outcome without having executed anything — with this project on
+the receiving end of it.
+
+| Check | Command | Result |
+|---|---|---|
+| Config parses on the server that would run it | `POST /api/v4/projects/1564/ci/lint` | `valid: true`, no errors |
+| No pipeline is created while unguarded | push to `main` | no new pipeline |
 
 To promote it once a runner exists: attach the runner, set `RUN_CI=1`, plant a failing test, push,
 watch the job go red on "1 failed", remove it, push, watch it go green — then move it into the table
