@@ -1,112 +1,131 @@
 # AgentForge
 
-An **autonomous multi-agent adversarial security platform** that continuously hunts,
-evaluates, validates, and regression-guards vulnerabilities in an AI system under test.
+**An autonomous multi-agent platform that continuously red-teams an AI system — hunting,
+evaluating, documenting, and regression-guarding vulnerabilities without a human in the loop for
+every step.** Its first target is an AI **Clinical Co-Pilot** (a chat agent built on an OpenEMR
+fork), but the engine is target-agnostic: a system under test plugs in through a `TargetAdapter`,
+and all domain-specific success criteria live in a pluggable **check-pack** — never hardcoded.
 
-Its first customer is the Week-1/2 **OpenEMR Clinical Co-Pilot**, but the engine is
-**target-agnostic**: the system under test plugs in through a `TargetAdapter`, and all
-clinical success criteria live in a pluggable **check-pack** — never hardcoded in the core.
+- **Live dashboard:** https://agentforge-web-production-c891.up.railway.app — a self-contained
+  security-ops view of coverage, findings, cost, and agent activity against the live target.
+- **Target under test:** https://45-55-53-165.sslip.io/copilot — content-fingerprinted on every
+  run (the platform never assumes the target is static).
 
 ## Why a multi-agent system (not a static test suite)
 
-Attack generation and attack evaluation are **different jobs with a conflict of interest**,
-so they are separate agents with separate trust levels:
+Generating an attack and judging whether it worked are different jobs with a built-in conflict of
+interest, so they are **separate agents with separate trust levels and different model families**:
 
-| Agent | Role | Trust | Model |
+| Agent | Role | Trust level | Model |
 |---|---|---|---|
-| **Orchestrator** | Strategy: picks the next campaign, triggers regression, halts on no-signal | read-only on stores | deterministic + narrow LLM |
-| **Red Team** | Offense: deterministic mutation engine + novel-seed model, fires live | may call the target; cannot judge itself | non-Claude Bedrock (+ deterministic) |
-| **Judge** | Evaluation: deterministic-first ladder; verdict from the check-pack policy | tool-less; sees attacker/target text as untrusted evidence | Bedrock Claude (independent family) |
-| **Documentation** | Reporting: confirmed verdicts → structured vuln reports | only writer to the vuln DB, behind a human gate | template + narrow LLM |
+| **Orchestrator** | Strategy: picks the next campaign, triggers regression, halts on no signal / over budget | read-only on stores; cannot write findings | deterministic (+ Claude Sonnet-5 for the strategic call) |
+| **Red Team** | Offense: deterministic mutation engine + a novel-seed model; fires against the live target | may call the target; cannot judge itself | Llama 4 Maverick + deterministic |
+| **Judge** | Evaluation: deterministic-first ladder; the safety oracle comes from the check-pack, never the attacker | tool-less; reads attacker/target text as untrusted evidence | Claude Opus 4.8 (independent family) |
+| **Documentation** | Reporting: confirmed verdicts → structured vulnerability reports | the only writer to the vuln DB, behind a human gate | template-driven (+ Claude Sonnet-5) |
 
-## Layout
+Every model runs through **Amazon Bedrock under a single AWS BAA**. The attacker was selected by
+**measured refusal behaviour** — see the AI-use disclosure in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-```
-src/agentforge/
-  config.py            # settings (env-driven; secrets never in the tree)
-  contracts/           # Pydantic v2 models = source of truth for /contracts JSON Schema
-  adapters/            # TargetAdapter protocol + the co-pilot adapter (hits the LIVE target)
-  checkpacks/copilot/  # clinical success criteria + PHI ground truth (behind the adapter)
-  mutation/            # deterministic attack-mutation engine (no LLM)
-  agents/              # redteam / judge / orchestrator / documentation
-  stores/              # append-only event ledger + curated vuln DB
-  seeds/               # the 8 real, test-pinned co-pilot defects as attack seeds
-contracts/v1/          # exported, versioned JSON Schema (the peer-integration boundary)
-evals/                 # the reproducible adversarial eval dataset (dual OWASP-mapped)
-docs/GATE_LEDGER.md    # proof-of-firing for every gate (planted failure → block → pass)
-```
+## Quick start (from a cold clone)
 
-## Deployed
-
-- **Platform (this repo):** https://agentforge-web-production-c891.up.railway.app — a read-only
-  observability dashboard over the live-target coverage matrix (`/`, `/health`, `/api/coverage`,
-  `/api/target`). `/api/target` confirms the deployed platform reaches the live co-pilot.
-- **Target (system under test):** https://45-55-53-165.sslip.io/copilot (the Week-1/2 Clinical
-  Co-Pilot). Fingerprinted on every run — the platform never assumes it is static.
-
-## Quick start
+Requires [`uv`](https://docs.astral.sh/uv/) and Python 3.12.
 
 ```bash
-uv venv --python 3.12 && uv pip install -e . && uv pip install pytest ruff mypy bandit pip-audit respx
-uv run pytest                       # hermetic suite (stubs the target + Bedrock) — 42 tests
-uv run agentforge demo              # the killer demo: catch a real vuln live, no network/cost
-uv run agentforge health            # live: is the target up? print its fingerprint
-uv run agentforge probe-bedrock     # live: Judge (Claude) + seed (Llama) reachability
-uv run agentforge run --category data_exfiltration --live   # LIVE campaign via the graph
-uv run agentforge evals --live      # regenerate ./evals/ against the deployed target
+git clone https://labs.gauntletai.com/vrajshah/agentforge.git && cd agentforge
+uv venv --python 3.12
+uv pip install -e . && uv pip install pytest pytest-asyncio ruff mypy bandit pip-audit respx
+
+uv run pytest                    # hermetic suite — stubs the target + Bedrock, no network/cost
+uv run agentforge demo           # one-command end-to-end demo (below) — no network/cost
 ```
 
-Live commands (`--live`, `-m live`) hit the real deployed target/Bedrock and cost real money/time;
-they are opt-in and batched, never in the default suite.
-
-## Live findings (authenticated)
-
-Run authenticated attacks through `/chat` + reads with the co-pilot's API key, novel seeds from
-Bedrock Llama-4-Maverick, and the Bedrock-Claude semantic Judge:
+To run against the live target and Bedrock, copy the env template and fill it in:
 
 ```bash
+cp .env.example .env             # then set AWS_BEARER_TOKEN_BEDROCK + (optionally) the target API key
+uv run agentforge health         # is the target up? print its content fingerprint
+uv run agentforge probe-bedrock  # Judge (Claude) + attacker (Llama) reachability + refusal check
+```
+
+Live commands (`--live`) hit the real deployed target and Bedrock and cost real money and time;
+they are opt-in and meant to be run in batches, never in the default test suite.
+
+## Running attacks against the live target
+
+```bash
+# Authenticated /chat + reads, novel seeds from the attacker model, semantic Judge, cost-capped,
+# and non-destructive (no chart writes reach the live deployment):
 uv run agentforge evals --live --principals api_key \
   --categories data_exfiltration,prompt_injection,tool_misuse,denial_of_service \
   --llm-judge --novel --safe-live --max 8 --budget 15
 ```
 
-**Result: the hardened co-pilot held across all 32 authenticated `/chat` variants** (direct,
-encoded, novel-Maverick-seeded, multi-turn) — an honest "defense held," with the LLM Judge
-correctly distinguishing refusal from compliance. `--safe-live` keeps the run non-destructive (no
-chart writes hit the live deployment); `--budget` is a hard cost cap.
+**Result: the hardened Co-Pilot held across all 32 authenticated `/chat` variants** (direct,
+encoded, model-generated, and multi-turn) — an honest *defense held*, with the LLM Judge correctly
+distinguishing a refusal from compliance.
 
-**Error-analysis that made the verdicts trustworthy.** The first authenticated run *over-flagged*
-(tool-misuse 8/8, injection 2/8). Reviewing the evidence found two false positives in the platform
-itself: (1) a normal 200 from `/chat` was treated as "forbidden status"; (2) a refusal that echoed
-the word "MRN" tripped a naive PHI-field marker. Both were fixed — `/chat` is now judged
-semantically by the LLM rung; field markers are kept only for structured reads — with regression
-tests so neither reappears. Catching the platform agreeing-with-everything *is* the value.
+The verdicts are trustworthy *because* the platform was caught over-flagging and corrected: the
+first authenticated run reported false positives (a normal `200` from `/chat` read as "forbidden
+status"; the word "MRN" inside a refusal tripping a naive marker). Both were root-caused and fixed —
+`/chat` is now judged semantically, and field-name markers are kept only for structured reads — with
+regression tests so neither recurs. Catching a judge that agrees with everything **is** the value of
+an evaluation platform.
 
 ## Vulnerability reports
 
-`uv run agentforge reports` generates ≥3 professional, reproducible reports in `reports/` — each
-drafted by the Documentation agent from a confirmed Judge verdict and **fix-validated by the
-regression harness** (re-running the exact attack against the patched build): `ea8fa01` (CRITICAL,
-cross-patient PHI leak), `e0e7b6a` (HIGH, attribution forgery), `b5f4b1e` (MEDIUM, TOCTOU
-double-write). Demonstrated on the ephemeral vulnerable build since the live target is hardened.
+```bash
+uv run agentforge reports        # writes reports/ — no network/cost
+```
 
-## The killer demo
+Generates three professional, reproducible reports, each **drafted by the Documentation agent from a
+confirmed Judge verdict and fix-validated by the regression harness** (the exact attack re-run
+against the patched build): a cross-patient PHI leak (CRITICAL), an attribution-forgery write (HIGH),
+and a duplicate-write race / TOCTOU (MEDIUM). Because the live target is hardened, these are
+demonstrated on an ephemeral, isolated vulnerable build. See [reports/](reports/).
 
-`agentforge demo` spins up an **ephemeral, isolated vulnerable build** (the `ea8fa01` cross-patient
-PHI leak, reverted) — never a toggle on the live target — and runs the full loop: the Red Team
-re-discovers the leak live, the Judge flags **CRITICAL / MUST-FIX**, the Documentation agent drafts
-a report, and the **regression harness goes RED on the vulnerable build and GREEN on the fixed
-one**, asserting the security property (patient B's DOB absent), not a status code.
+## One-command demo (`agentforge demo`)
+
+Spins up an **ephemeral, isolated vulnerable build** of the target (a known cross-patient PHI leak,
+reverted) — never a toggle on the live system — and runs the full loop end to end: the Red Team
+re-discovers the leak, the Judge flags it **CRITICAL / must-fix**, the Documentation agent drafts a
+report, and the **regression harness goes red on the vulnerable build and green on the fixed one**,
+asserting the security property (another patient's date of birth is absent), not a status code. This
+is the spine of the demo video.
+
+## Architecture
+
+Four agents coordinate through versioned JSON-Schema messages, orchestrated by a LangGraph state
+machine, observed by the dashboard. Full write-up in [ARCHITECTURE.md](ARCHITECTURE.md); threat
+model in [THREAT_MODEL.md](THREAT_MODEL.md); users and the automation case in [USERS.md](USERS.md).
+
+![AgentForge agent-interaction diagram](docs/diagrams/architecture.svg)
+
+```
+src/agentforge/
+  adapters/            TargetAdapter boundary + the Co-Pilot adapter (hits the live target)
+  checkpacks/copilot/  domain success criteria + PHI ground truth (behind the adapter)
+  mutation/            deterministic attack-mutation engine (no model call)
+  agents/              redteam · judge · orchestrator · documentation
+  contracts/           Pydantic models = source of truth for the versioned JSON Schema
+  stores/              append-only event ledger + curated vulnerability DB
+  seeds/               the eight real, test-pinned target defects, as attack seeds
+  bedrock.py           model access (Anthropic SDK for Claude, Bedrock converse for the attacker)
+  graph.py             the LangGraph campaign loop  ·  web.py  the dashboard service
+contracts/v1/          exported, versioned JSON Schema  ·  evals/  the reproducible eval dataset
+reports/               generated vulnerability reports  ·  docs/  gate & exploit ledgers, diagrams
+fixtures/drift/        frozen, signed goldens for Judge drift detection
+```
 
 ## Submission URLs
 
-1. **Platform repo (GitLab):** https://labs.gauntletai.com/vrajshah/agentforge
-2. **Deployed platform (Railway):** https://agentforge-web-production-c891.up.railway.app
-3. **Target co-pilot repo (GitLab):** the OpenEMR fork carrying the Week-1/2 co-pilot.
+1. **Platform repository:** https://labs.gauntletai.com/vrajshah/agentforge
+2. **Deployed platform (dashboard):** https://agentforge-web-production-c891.up.railway.app
+3. **Target application repository:** the OpenEMR fork hosting the Clinical Co-Pilot.
 
-## Authorization & scope
+## Scope, safety & data
 
-This is a **course assignment** run in a **sandbox** against **our own** app (a public
-open-source OpenEMR fork) seeded with **synthetic patients only** — no real PHI, no real
-patients, no production database, no third party. Building the red team *is* the defensive
-goal. The target URL is an immutable allow-list; the platform attacks nothing else.
+Authorized security testing of **our own** application, run in an **isolated sandbox** seeded with
+**synthetic patients only** — no real PHI, no real patients, no production database, no third party.
+The target URL is an immutable allow-list, so the platform can attack nothing else; live runs are
+cost-capped and, with `--safe-live`, send no state-changing writes to the deployed target. All
+models run inside AWS under one BAA. Secrets live only in a git-ignored `.env`.

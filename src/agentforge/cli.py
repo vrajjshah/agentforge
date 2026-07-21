@@ -170,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("export-schemas", help="re-export the JSON Schema contracts")
     sub.add_parser("demo", help="run the killer demo (ephemeral vulnerable build; no network/cost)")
     sub.add_parser("reports", help="generate the >=3 vuln reports (ephemeral build; no cost)")
+    sub.add_parser("dashboard", help="rebuild evals/dashboard.json for the observability dashboard")
 
     run = sub.add_parser("run", help="run one campaign through the multi-agent graph")
     run.add_argument("--category", required=True, choices=[c.value for c in AttackCategory])
@@ -209,6 +210,11 @@ def main(argv: list[str] | None = None) -> int:
         paths = asyncio.run(generate_reports(settings, _REPO_ROOT / "reports"))
         for p in paths:
             print(f"wrote {p.relative_to(_REPO_ROOT)}")
+        return 0
+    if args.cmd == "dashboard":
+        from agentforge.dashboard import write_dashboard
+
+        print(f"wrote {asyncio.run(write_dashboard()).relative_to(_REPO_ROOT)}")
         return 0
     if args.cmd == "run":
         return asyncio.run(_cmd_run(settings, args))

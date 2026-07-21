@@ -18,7 +18,7 @@ identity cross a boundary that a human reviewing the UI cannot see is broken. Bo
 list and both patients' names + DOBs to a session bound elsewhere — HTTP 200, demonstrated) and
 `e0e7b6a` (an API-key write attributed to whatever clinician name the body supplied). Third is
 **prompt injection** — direct, multi-turn, and *indirect via uploaded documents* (a sneaky PDF the
-physician uploads) — the co-pilot-first surface the assignment emphasizes. Then **denial of
+physician uploads) — the primary LLM-adversarial surface. Then **denial of
 service / cost amplification** (a single uvicorn worker at ~0.56 turns/s, upload p95 12.2 s
 against a 15 s SLO, and a VLM path that never checks `stop_reason == max_tokens` so a long lab PDF
 truncates silently). **State corruption** (`7fbf995`: a second reject erased the first clinician's
@@ -39,7 +39,7 @@ defects are already **fixed on the deployed HEAD**, weights toward genuinely *un
 model. The **dual OWASP mapping** (web-2021 + LLM-2023) is a data-quality gate on every case, not a
 footnote — it's the one mandatory engineering deliverable. Against the hardened live target the
 honest result is **"defense held"**; the platform demonstrates it catches real vulns via an
-ephemeral vulnerable build (the killer demo) and the frozen ground-truth set, so no claim rests on
+ephemeral vulnerable build and the frozen ground-truth set, so no claim rests on
 re-finding our own patched bugs.
 
 ---

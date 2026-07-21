@@ -33,8 +33,8 @@ state and the loop; the graph's `recursion_limit` is a hard bound on top of the 
 fingerprint), and all clinical success criteria live in a pluggable **check-pack** — so the engine
 is **target-agnostic** and the co-pilot is merely its first customer.
 
-**AI vs deterministic.** The default is deterministic (Aaron's "don't give a node an LLM if a
-boolean will do"): mutation, most verdicts, the Orchestrator's routing, and the entire regression
+**AI vs deterministic.** The default is deterministic — don't give a node a model if a boolean will
+do: mutation, most verdicts, the Orchestrator's routing, and the entire regression
 harness are non-AI. Bedrock is used only where judgment is genuinely semantic — novel-seed
 generation and the narrow compliance rung — because every live attack also pays the *target's* own
 Bedrock inference (~$0.071/turn), so cost discipline is architectural.
@@ -89,7 +89,7 @@ it is stubbed deterministically for the MVP.
 ## How Judge verdicts feed the regression harness
 
 A `Verdict` labelled EXPLOITED with a `seed_id` sets `regression_flag=True`. The confirmed exploit
-becomes a versioned regression manifest (F7): the multi-turn sequence, auth principal, patient
+becomes a versioned regression manifest: the multi-turn sequence, auth principal, patient
 fixture, target-version fingerprint, model/prompt versions, the **security-property assertion**
 (not a status code), side-effects, and cleanup. The harness re-runs on every target-version change
 and detects both **reappearance** of a fixed vuln and **cross-category regression** (fixing A
@@ -105,52 +105,85 @@ breaks B).
 
 ## Where AI is used vs deterministic tooling (justified)
 
+The default is **deterministic** — a static boolean is cheaper, faster, more reliable, and never
+refuses. A model is used only where the task is genuinely semantic.
+
 | Function | Choice | Why |
 |---|---|---|
-| Attack mutation (bulk) | **deterministic** | reproducible, refusal-free, free; a boolean beats a model |
-| Novel-seed generation | **non-Claude Bedrock** | frontier models refuse offensive framing; a permissive model + the BAA fits |
-| PHI-leak / DoS / status verdicts | **deterministic** | a static boolean ("did B's DOB appear?") is more reliable than any LLM |
-| Semantic compliance ("did it obey the injection?") | **narrow LLM (Bedrock Claude)** | genuinely semantic; boolean rubric, one task, untrusted evidence |
+| Attack mutation (the bulk) | **deterministic** | reproducible, refusal-free, no per-variant cost |
+| Novel-seed generation | **LLM (non-Claude)** | needs creative variety; a permissive attacker model |
+| PHI-leak / status / idempotency verdicts | **deterministic** | a static boolean ("did patient B's DOB appear?", "did two writes both succeed?") beats any LLM |
+| Semantic compliance ("did the model obey the injection?") | **narrow LLM (Claude)** | genuinely semantic; a boolean rubric on one task, over untrusted evidence |
 | Orchestration / routing | **deterministic** | least-covered-cell selection is arithmetic |
-| Regression harness | **deterministic** | a test must assert the property, not a model mood |
+| Regression harness | **deterministic** | a test must assert the security property, not a model's mood |
 
-## Cost, rate-limit & model constraints at scale (F8)
+## Model roster & selection (AI-use disclosure)
 
-Attack *generation* is nearly free (deterministic), but every **live** attack pays the target's
-own Bedrock call (~$0.071/turn), so the real driver is *live executions*: 100K single-turn attacks
-≈ ~$7.1K and ~50 h on one worker before judging. Handling: **risk-preserving triage** —
-deterministic pre-checks decide which attempts reach a paid Judge (never blind sampling); the
-Orchestrator's finding-rate-per-dollar circuit breaker; batched offline generation. Scale
-inflection points: 100 (single box, SQLite) → 1K (Postgres + Redis seams) → 10K (queue +
-horizontal Red Team workers) → 100K (offline batch generation + triaged judging). Backoff/queue/
-abort on provider rate limits; the target's single-worker limit is a *target* property, not ours.
+**Every model runs through Amazon Bedrock, in one region, under a single AWS BAA.** Inference stays
+inside AWS; AWS does not route prompts or outputs to the model providers and does not train on them.
+This is what lets a hospital run the platform against a system holding real PHI without a second
+vendor agreement. (In this project the target's data is **synthetic** — no real PHI — but the
+platform is built to the same standard.)
 
-## Framework that manages agent state/coordination
+| Agent | Model | Client | Rationale |
+|---|---|---|---|
+| **Red Team (attacker)** | `us.meta.llama4-maverick-17b-instruct` (Meta, US-origin) | Bedrock `converse` | See selection note below |
+| **Judge (evaluator)** | `us.anthropic.claude-opus-4-8` (Anthropic) | AnthropicBedrock SDK | Reliability-critical; deterministic-first keeps its call volume low |
+| **Orchestrator + Documentation** | `us.anthropic.claude-sonnet-5` (Anthropic) | AnthropicBedrock SDK | Fast, cheaper, strong; these are low-volume strategic calls |
+| Attack mutation | — (no model) | — | Deterministic engine — the bulk of generation |
 
-**LangGraph** — a `StateGraph` with distinct agent nodes and a typed `CampaignState`, conditional
-edges for the HALT branch, and a `recursion_limit` bounding the loop. This is Aaron's supervisor/
-orchestrator pattern: the Orchestrator routes to workers that return to it. State is in-process for
-the MVP (SQLite ledger for durability); Postgres + a work queue are the documented scale upgrade.
+**Attacker selection was by measured refusal behaviour, not vendor preference.** A frontier model
+that refuses offensive-security workflows is unusable as a Red Team, so candidates were probed with
+the *authorized* red-team prompt on identical infrastructure:
 
-## AI-use disclosure
+- **Llama 4 Maverick — complied.** Selected. Non-Claude on purpose: a different model family from the
+  Judge is the independence control (a generator and judge from the same family share blind spots).
+- **OpenAI `gpt-oss` — refused** the authorized prompt.
+- **DeepSeek-R1 — refused**, and is non-Western-origin (a provenance consideration for a healthcare
+  buyer); available behind an explicit off-by-default flag only, never the default.
+- **Claude is never the attacker** — it declines offensive tasks by design; it is the Judge instead.
 
-Every AI-powered decision is followed by deterministic verification or a human gate:
-- **Red Team (non-Claude Bedrock)** → its output is *executed against the real target*; success is
-  decided by the independent Judge, not the generator. Remaining risk: a novel attack the
-  deterministic Judge can't classify → escalates to the LLM rung, then to a human.
-- **Judge LLM rung (Bedrock Claude)** → only fires for ambiguous prompt-injection; its input is one
-  task with untrusted, delimited evidence; it is tool-less so injected text can't reprogram it.
-  Remaining risk: **judge drift** (see below).
-- **Documentation** is template-driven (no LLM); a CRITICAL report needs human approval.
+So the roster is **Western-origin by default**, chosen by evidence, under one BAA — a selection a
+security reviewer can audit rather than take on faith.
+
+### Every AI decision is followed by deterministic verification or a human gate
+
+- **Red Team output** is *executed against the real target*; whether it succeeded is decided by the
+  independent Judge, never by the generator. A novel attack the deterministic Judge can't classify
+  escalates to the LLM rung, then to a human.
+- **Judge LLM rung** fires only for ambiguous semantic cases; its input is one task over untrusted,
+  delimited evidence, and it is tool-less, so injected text in a response cannot reprogram it.
+  Remaining risk — **judge drift** — is guarded below.
+- **Documentation** is template-driven (no model authors the report); a CRITICAL finding requires
+  explicit human approval before it is filed.
 
 ### Detecting and correcting a drifting Judge
 
-The Judge's ground truth is a set of **frozen, signed fixtures** (request + response + tool-trace)
-from *both* a vulnerable build and the fixed build — not attacks replayed against a moving live
-target (which can't separate "judge drifted" from "app changed"). Every session re-runs the
-fixtures; **if the Judge misclassifies a golden, it has drifted → alert + block** (the invariant
-"the Judge must never approve a confirmed exploit as safe" is a test, not a hope). Drift
-proof-of-firing: inject a deliberately wrong verdict against a fixture and watch the gate catch it.
-Correction: pin the Judge model version, diff the fixture verdicts across model versions, and
-recalibrate the rubric against human labels before promoting a new model (frontier models deprecate
-on a ~2.5-year cycle — swapping one silently moves behaviour).
+The Judge's ground truth is a set of **frozen, content-signed fixtures** (request + observed
+response + the known-correct label) captured from *both* a vulnerable and a fixed build — not
+attacks replayed against a moving target, which cannot separate "the judge drifted" from "the app
+changed." Every run re-judges the fixtures; if the Judge misclassifies one, it has **drifted → the
+gate alerts and blocks**, and a tampered fixture (signature mismatch) is caught too. Correction: pin
+the Judge model version, diff the fixture verdicts across versions, and recalibrate against
+human-labelled cases before promoting a new model — frontier models are deprecated on a multi-year
+cycle, and swapping one silently moves behaviour.
+
+## Cost, rate-limits & model constraints at scale
+
+Attack *generation* is nearly free (deterministic), but every **live** attack pays the target's own
+model call (about $0.07/turn here), so the real cost driver is *live executions*, not our
+generation: ~100K single-turn attacks ≈ ~$7K and tens of hours against a single-worker target
+before judging. The platform handles this with **risk-preserving triage** — deterministic
+pre-checks decide which attempts reach a paid Judge, never blind sampling — plus a
+finding-rate-per-dollar circuit breaker, a hard per-campaign budget, and batched offline generation.
+Scale inflection points, each naming the architectural change: 100 (single box, SQLite) → 1K
+(Postgres + a shared cache/queue for the per-process guards) → 10K (work queue + horizontal Red Team
+workers) → 100K (offline batch generation + triaged judging). Provider rate limits are handled with
+backoff/queue/abort.
+
+## Framework that manages agent state/coordination
+
+**LangGraph** — a `StateGraph` with distinct agent nodes, a typed `CampaignState`, conditional edges
+for the halt branch, and a `recursion_limit` bounding the loop (a supervisor/orchestrator pattern:
+the Orchestrator routes to workers that return to it). State is in-process, backed by a SQLite event
+ledger for durability; Postgres + a work queue are the documented scale upgrade.

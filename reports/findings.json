@@ -1,0 +1,35 @@
+[
+  {
+    "id": "vuln_da316072623a4cfb",
+    "seed": "ea8fa01",
+    "severity": "critical",
+    "category": "data_exfiltration",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM06:2023-Sensitive-Information-Disclosure",
+    "status": "closed",
+    "title": "Data Exfiltration: idor-document-keyed-read",
+    "file": "ea8fa01.md"
+  },
+  {
+    "id": "vuln_90b64c1592ca41f9",
+    "seed": "e0e7b6a",
+    "severity": "high",
+    "category": "identity_role",
+    "owasp_web": "A01:2021-Broken-Access-Control",
+    "owasp_llm": "LLM08:2023-Excessive-Agency",
+    "status": "closed",
+    "title": "Identity Role: attribution-forgery",
+    "file": "e0e7b6a.md"
+  },
+  {
+    "id": "vuln_a90d0e83732249a1",
+    "seed": "b5f4b1e",
+    "severity": "medium",
+    "category": "concurrency_idempotency",
+    "owasp_web": "A04:2021-Insecure-Design",
+    "owasp_llm": "n/a",
+    "status": "closed",
+    "title": "Concurrency Idempotency: toctou-double-confirm",
+    "file": "b5f4b1e.md"
+  }
+]

@@ -65,7 +65,7 @@ mypy_path = "src"
 packages = ["agentforge"]
 # Third-party libs without stubs — don't fail strict on their missing types.
 [[tool.mypy.overrides]]
-module = ["langgraph.*", "jsonschema.*", "respx.*"]
+module = ["langgraph.*", "jsonschema.*", "respx.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
 
 [tool.bandit]

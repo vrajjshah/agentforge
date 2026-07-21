@@ -34,7 +34,7 @@ def _redteam(settings: Settings, vulnerable: bool) -> RedTeamAgent:
 
 async def run_demo() -> int:
     settings = Settings(target_url="http://demo.local", target_api_key="", aws_region="us-east-1",
-                        judge_model="demo", redteam_seed_model="demo",
+                        judge_model="demo", redteam_seed_model="demo", orchestrator_model="demo",
                         data_dir=Path(tempfile.mkdtemp(prefix="agentforge-demo-")),
                         request_timeout_s=5.0, global_max_latency_s=15.0)
     judge = Judge()

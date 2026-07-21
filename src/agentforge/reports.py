@@ -115,9 +115,14 @@ async def generate_reports(settings: Settings, out_dir: Path) -> list[Path]:
         path.write_text(render_markdown(report, verdict.evidence))
         written.append(path)
         index.append({"id": report.id, "seed": seed_id, "severity": report.severity.value,
+                      "category": report.category.value, "owasp_web": report.owasp.web.value,
+                      "owasp_llm": report.owasp.llm.value, "status": report.status,
                       "title": report.title, "file": path.name})
     (out_dir / "README.md").write_text(_render_index(index))
     written.append(out_dir / "README.md")
+    # Machine-readable index for the dashboard (findings table).
+    (out_dir / "findings.json").write_text(json.dumps(index, indent=2) + "\n")
+    written.append(out_dir / "findings.json")
     return written
 
 

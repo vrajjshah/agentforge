@@ -33,7 +33,8 @@ from agentforge.stores.vulndb import VulnDB
 
 def _settings(tmp_path: Path) -> Settings:
     return Settings(target_url="http://demo.local", target_api_key="", aws_region="us-east-1",
-                    judge_model="t", redteam_seed_model="t", data_dir=tmp_path / "d",
+                    judge_model="t", redteam_seed_model="t", orchestrator_model="t",
+                    data_dir=tmp_path / "d",
                     request_timeout_s=5.0, global_max_latency_s=15.0)
 
 

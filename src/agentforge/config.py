@@ -24,6 +24,7 @@ class Settings:
     aws_region: str
     judge_model: str
     redteam_seed_model: str
+    orchestrator_model: str
     data_dir: Path
     request_timeout_s: float
     # A hard ceiling the adapter enforces regardless of any campaign's request (defense in depth).
@@ -52,9 +53,15 @@ class Settings:
                 "AGENTFORGE_JUDGE_MODEL", "us.anthropic.claude-opus-4-8"
             ),
             redteam_seed_model=os.environ.get(
-                # Llama 4 Maverick — empirically complies with authorized offensive framing
-                # (unlike 3.3-70b, untested); generates the novel /chat injection seeds.
+                # Llama 4 Maverick — measured to comply with authorized offensive-security
+                # prompts (OpenAI gpt-oss and DeepSeek-R1 refused the same prompt); a non-Claude
+                # family, which is also the Judge-independence control. Generates novel seeds.
                 "AGENTFORGE_REDTEAM_SEED_MODEL", "us.meta.llama4-maverick-17b-instruct-v1:0"
+            ),
+            orchestrator_model=os.environ.get(
+                # Sonnet-5 for the (low-volume) strategic Orchestrator + Documentation calls:
+                # fast and cheaper than the Opus Judge, which stays reliability-critical.
+                "AGENTFORGE_ORCHESTRATOR_MODEL", "us.anthropic.claude-sonnet-5"
             ),
             data_dir=Path(os.environ.get("AGENTFORGE_DATA_DIR", str(_REPO_ROOT / "data"))),
             request_timeout_s=float(os.environ.get("AGENTFORGE_REQUEST_TIMEOUT_S", "30")),

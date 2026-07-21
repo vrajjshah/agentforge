@@ -18,6 +18,7 @@ def settings(tmp_path: Path) -> Settings:
         aws_region="us-east-1",
         judge_model="test-judge",
         redteam_seed_model="test-redteam",
+        orchestrator_model="test-orchestrator",
         data_dir=tmp_path / "data",
         request_timeout_s=5.0,
         global_max_latency_s=15.0,
