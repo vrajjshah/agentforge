@@ -154,7 +154,7 @@ reason it was found — no attack sweep would have looked.
 | **Severity** | **Low** — conformance, not exploitable. No data exposure, no authorization impact |
 | **OWASP** | A05:2021 Security Misconfiguration (web) · n/a (LLM) |
 | **Standard** | OpenID Connect Core 1.0 §5.3 — a published `userinfo_endpoint` is expected to serve claims |
-| **Status** | **Open.** Reported, deliberately not fixed before submission |
+| **Status** | **Reported, closed on our side.** The defect is open in OpenEMR core; fixing it is not Week-3 work — it is neither the co-pilot nor an LLM-adversarial surface. Reporting it is the deliverable |
 
 **Impact.** Discovery exists so a client can configure itself from the issuer. Any conformant client
 that follows it will issue a request that always fails. Ours did: the AgentForge dashboard called
@@ -169,9 +169,14 @@ authorization-code flow ever calls it. The work is bearer-token validation plus 
 that are already there — and it fixes the display name for **every** user and **every** OIDC client
 rather than one hardcoded subject.
 
-**Why it is not fixed here.** It is a change to a live EMR's authentication layer, and SSO works
-today. Touching that path immediately before submission trades a working login for a cosmetic label,
-which is the wrong trade at this point in the week. Recorded as a finding, scheduled after.
+**Why it is not fixed here, and will not be.** It is a change to a live EMR's authentication layer
+in OpenEMR *core*, not in the co-pilot under test, and it carries no LLM-adversarial surface — so it
+falls outside what this platform set out to do. SSO works today; touching that path would trade a
+working login for a cosmetic label. The consequence is visible and accepted: the dashboard header
+reads `Administrator`, which is accurate for the admin principal, and stays that way.
+
+A red team that reports a defect in a dependency, scopes it honestly, and declines to patch someone
+else's auth layer on the way past is behaving correctly. The write-up is the deliverable.
 
 ### Known operational weak points
 

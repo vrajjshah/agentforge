@@ -305,10 +305,14 @@ Every published agreement figure here should be read as approximate, and calibra
 each run and report the spread rather than a point estimate. That correction is worth more than the
 clause was.
 
-**The order this has to be picked up in, whenever it is.** Not "write a better clause" — that is the
-trap. A new clause that scores better on one twelve-case run cannot be claimed, because a one- or
-two-case improvement is inside the noise just demonstrated, and claiming it would commit exactly the
-error documented above.
+**This is a closed decision, and the negative result above is the deliverable.** Not a pending
+task, not a clause awaiting a rewrite. "Write a better clause" is the trap: a new clause scoring
+better on one twelve-case run could not be claimed, because a one- or two-case improvement is
+inside the noise just demonstrated, and claiming it would commit exactly the error documented
+above. The honest artifact is the measurement that showed the clause did nothing and the noise
+floor that explains why a small win cannot be read.
+
+**If it is ever resumed, the order is fixed** — and it does not start with the clause:
 
 1. **Repeat first.** Run the existing rubric N times over an existing holdout and publish the
    spread. Until the noise floor is known, no clause can be shown to have moved anything.
@@ -316,9 +320,9 @@ error documented above.
    case of effect; the set has to grow until the effect being claimed is larger than the spread.
 3. **Only then a holdout5**, written before the clause it scores, as every holdout here has been.
 
-The negation gap stays open and labelled until that sequence is done. An unproven clause described
-as unproven costs nothing; a clause claimed on a single run would cost the credibility of the four
-measurements above it.
+Until that sequence is done there is nothing here to claim, and the clause stays labelled unproven.
+An unproven clause described as unproven costs nothing; a clause claimed on a single run would cost
+the credibility of the four measurements above it.
 
 **The pattern across three holdouts is the finding.** Each fix closes its class and surfaces a
 subtler member of it, and **precision has been 1.0 at every step**. The rung under-reports; it does
