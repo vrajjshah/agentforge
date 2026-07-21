@@ -1,0 +1,171 @@
+{
+  "$defs": {
+    "OwaspLlm": {
+      "description": "OWASP Top 10 for LLM Applications \u2014 2023 taxonomy (per the assignment's naming order).",
+      "enum": [
+        "LLM01:2023-Prompt-Injection",
+        "LLM02:2023-Insecure-Output-Handling",
+        "LLM03:2023-Training-Data-Poisoning",
+        "LLM04:2023-Model-Denial-of-Service",
+        "LLM05:2023-Supply-Chain",
+        "LLM06:2023-Sensitive-Information-Disclosure",
+        "LLM07:2023-Insecure-Plugin-Design",
+        "LLM08:2023-Excessive-Agency",
+        "LLM09:2023-Overreliance",
+        "LLM10:2023-Model-Theft",
+        "n/a"
+      ],
+      "title": "OwaspLlm",
+      "type": "string"
+    },
+    "OwaspMapping": {
+      "additionalProperties": false,
+      "description": "Dual-taxonomy tag. The data-quality gate rejects a mapping where BOTH are ``n/a`` (F3).",
+      "properties": {
+        "justification": {
+          "default": "",
+          "title": "Justification",
+          "type": "string"
+        },
+        "llm": {
+          "$ref": "#/$defs/OwaspLlm"
+        },
+        "taxonomy_version": {
+          "default": "owasp-web-2021; owasp-llm-2023",
+          "title": "Taxonomy Version",
+          "type": "string"
+        },
+        "web": {
+          "$ref": "#/$defs/OwaspWeb"
+        }
+      },
+      "required": [
+        "web",
+        "llm"
+      ],
+      "title": "OwaspMapping",
+      "type": "object"
+    },
+    "OwaspWeb": {
+      "description": "OWASP Top 10 (web) \u2014 2021 taxonomy.",
+      "enum": [
+        "A01:2021-Broken-Access-Control",
+        "A02:2021-Cryptographic-Failures",
+        "A03:2021-Injection",
+        "A04:2021-Insecure-Design",
+        "A05:2021-Security-Misconfiguration",
+        "A06:2021-Vulnerable-Components",
+        "A07:2021-Auth-Failures",
+        "A08:2021-Software-Data-Integrity-Failures",
+        "A09:2021-Logging-Monitoring-Failures",
+        "A10:2021-SSRF",
+        "n/a"
+      ],
+      "title": "OwaspWeb",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "VerdictLabel": {
+      "description": "Attacker's-eye outcome. ``EXPLOITED`` = the attack worked (a vuln); ``DEFENDED`` = the\ndefense held (safe). Maps to the assignment's success/fail/partial.",
+      "enum": [
+        "exploited",
+        "defended",
+        "partial",
+        "inconclusive"
+      ],
+      "title": "VerdictLabel",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Judge \u2192 Orchestrator + Documentation.",
+  "properties": {
+    "attempt_id": {
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "campaign_id": {
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 1.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "exploitability": {
+      "default": "unknown",
+      "title": "Exploitability",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "judged_by": {
+      "default": "deterministic:v1",
+      "title": "Judged By",
+      "type": "string"
+    },
+    "label": {
+      "$ref": "#/$defs/VerdictLabel"
+    },
+    "owasp": {
+      "$ref": "#/$defs/OwaspMapping"
+    },
+    "regression_flag": {
+      "default": false,
+      "title": "Regression Flag",
+      "type": "boolean"
+    },
+    "rule_fired": {
+      "default": "",
+      "title": "Rule Fired",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "target_version": {
+      "title": "Target Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "attempt_id",
+    "campaign_id",
+    "label",
+    "severity",
+    "owasp",
+    "target_version"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

@@ -1,0 +1,73 @@
+[project]
+name = "agentforge"
+version = "0.1.0"
+description = "AgentForge — an autonomous multi-agent adversarial security platform (Week 3)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "langgraph>=0.2.50",
+    "pydantic>=2.9",
+    "httpx>=0.27",
+    "anthropic[bedrock]>=0.40",
+    "jsonschema>=4.23",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+agentforge = "agentforge.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+    "respx>=0.21",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Live tests hit the real deployed target / Bedrock and cost real money + time.
+# They are opt-in only, never in the default suite (hermetic by default).
+addopts = "-q -m 'not live'"
+markers = [
+    "live: hits the real deployed target or Bedrock (costs money/time; run in batches)",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test factories use the base-dict + .update(kw) pattern for parametric fixtures.
+"tests/**" = ["C408"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["agentforge"]
+# Third-party libs without stubs — don't fail strict on their missing types.
+[[tool.mypy.overrides]]
+module = ["langgraph.*", "jsonschema.*", "respx.*"]
+ignore_missing_imports = true
+
+[tool.bandit]
+# Test files legitimately use asserts and construct attack payloads.
+exclude_dirs = ["tests"]

@@ -1,0 +1,28 @@
+# Secrets — never commit
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+
+# Platform data stores (append-only ledger + vuln DB live outside the tree)
+*.db
+*.sqlite
+*.sqlite3
+data/
+!evals/cases/**/*.json
+
+# OS
+.DS_Store
+
+# Live-run artifacts (real target responses may carry synthetic PHI)
+runs/

@@ -1,0 +1,256 @@
+{
+  "$defs": {
+    "AttackCategory": {
+      "enum": [
+        "prompt_injection",
+        "data_exfiltration",
+        "state_corruption",
+        "tool_misuse",
+        "denial_of_service",
+        "identity_role",
+        "concurrency_idempotency"
+      ],
+      "title": "AttackCategory",
+      "type": "string"
+    },
+    "AttackTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "probe": {
+          "$ref": "#/$defs/HttpProbe"
+        }
+      },
+      "required": [
+        "index",
+        "probe"
+      ],
+      "title": "AttackTurn",
+      "type": "object"
+    },
+    "HttpProbe": {
+      "additionalProperties": false,
+      "description": "One HTTP request against the target, path relative to the target base URL.",
+      "properties": {
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "json_body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Json Body"
+        },
+        "method": {
+          "default": "POST",
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Query",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "HttpProbe",
+      "type": "object"
+    },
+    "OwaspLlm": {
+      "description": "OWASP Top 10 for LLM Applications \u2014 2023 taxonomy (per the assignment's naming order).",
+      "enum": [
+        "LLM01:2023-Prompt-Injection",
+        "LLM02:2023-Insecure-Output-Handling",
+        "LLM03:2023-Training-Data-Poisoning",
+        "LLM04:2023-Model-Denial-of-Service",
+        "LLM05:2023-Supply-Chain",
+        "LLM06:2023-Sensitive-Information-Disclosure",
+        "LLM07:2023-Insecure-Plugin-Design",
+        "LLM08:2023-Excessive-Agency",
+        "LLM09:2023-Overreliance",
+        "LLM10:2023-Model-Theft",
+        "n/a"
+      ],
+      "title": "OwaspLlm",
+      "type": "string"
+    },
+    "OwaspMapping": {
+      "additionalProperties": false,
+      "description": "Dual-taxonomy tag. The data-quality gate rejects a mapping where BOTH are ``n/a`` (F3).",
+      "properties": {
+        "justification": {
+          "default": "",
+          "title": "Justification",
+          "type": "string"
+        },
+        "llm": {
+          "$ref": "#/$defs/OwaspLlm"
+        },
+        "taxonomy_version": {
+          "default": "owasp-web-2021; owasp-llm-2023",
+          "title": "Taxonomy Version",
+          "type": "string"
+        },
+        "web": {
+          "$ref": "#/$defs/OwaspWeb"
+        }
+      },
+      "required": [
+        "web",
+        "llm"
+      ],
+      "title": "OwaspMapping",
+      "type": "object"
+    },
+    "OwaspWeb": {
+      "description": "OWASP Top 10 (web) \u2014 2021 taxonomy.",
+      "enum": [
+        "A01:2021-Broken-Access-Control",
+        "A02:2021-Cryptographic-Failures",
+        "A03:2021-Injection",
+        "A04:2021-Insecure-Design",
+        "A05:2021-Security-Misconfiguration",
+        "A06:2021-Vulnerable-Components",
+        "A07:2021-Auth-Failures",
+        "A08:2021-Software-Data-Integrity-Failures",
+        "A09:2021-Logging-Monitoring-Failures",
+        "A10:2021-SSRF",
+        "n/a"
+      ],
+      "title": "OwaspWeb",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Documentation \u2192 vuln DB (persistence write; behind the data-quality + human gate).",
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/AttackCategory"
+    },
+    "clinical_impact": {
+      "title": "Clinical Impact",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "expected_behavior": {
+      "title": "Expected Behavior",
+      "type": "string"
+    },
+    "fix_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fix Commit"
+    },
+    "fix_validation": {
+      "default": "",
+      "title": "Fix Validation",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "observed_behavior": {
+      "title": "Observed Behavior",
+      "type": "string"
+    },
+    "owasp": {
+      "$ref": "#/$defs/OwaspMapping"
+    },
+    "remediation": {
+      "title": "Remediation",
+      "type": "string"
+    },
+    "reproduction": {
+      "items": {
+        "$ref": "#/$defs/AttackTurn"
+      },
+      "title": "Reproduction",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "status": {
+      "default": "confirmed",
+      "title": "Status",
+      "type": "string"
+    },
+    "target_version": {
+      "title": "Target Version",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "severity",
+    "category",
+    "owasp",
+    "clinical_impact",
+    "reproduction",
+    "observed_behavior",
+    "expected_behavior",
+    "remediation",
+    "target_version"
+  ],
+  "title": "VulnReport",
+  "type": "object"
+}

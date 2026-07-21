@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# AgentForge pre-push hard gate (DIRECTION §11: the primary hard gate — CI is layered on only
+# after a runner is watched red-then-green). Blocks the push if any check fails.
+#
+# Proof-of-firing: docs/GATE_LEDGER.md records planting a failure, watching this block, then pass.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+echo "▶ pre-push gate: ruff · mypy --strict · pytest · bandit · pip-audit"
+
+run() { echo "  → $1"; shift; "$@"; }
+
+run "ruff"      uv run ruff check src tests
+run "mypy"      uv run mypy src
+run "pytest"    uv run pytest
+run "bandit"    uv run bandit -q -r src
+run "pip-audit" uv run pip-audit
+
+echo "✓ pre-push gate passed"

@@ -1,0 +1,377 @@
+{
+  "$defs": {
+    "AttackCategory": {
+      "enum": [
+        "prompt_injection",
+        "data_exfiltration",
+        "state_corruption",
+        "tool_misuse",
+        "denial_of_service",
+        "identity_role",
+        "concurrency_idempotency"
+      ],
+      "title": "AttackCategory",
+      "type": "string"
+    },
+    "AttackTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "probe": {
+          "$ref": "#/$defs/HttpProbe"
+        }
+      },
+      "required": [
+        "index",
+        "probe"
+      ],
+      "title": "AttackTurn",
+      "type": "object"
+    },
+    "AuthPrincipal": {
+      "enum": [
+        "none",
+        "session",
+        "api_key"
+      ],
+      "title": "AuthPrincipal",
+      "type": "string"
+    },
+    "ExpectedSafe": {
+      "additionalProperties": false,
+      "description": "The safety oracle \u2014 from the check-pack policy, NEVER the Red Team (F4).\n\nAll fields are *deterministic* assertions the Judge evaluates against target evidence.\nThe security property is asserted here (patient B's DOB absent), not a bare 200 (F7).",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "forbid_status_in": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Forbid Status In",
+          "type": "array"
+        },
+        "forbid_substrings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbid Substrings",
+          "type": "array"
+        },
+        "forbid_tool_calls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbid Tool Calls",
+          "type": "array"
+        },
+        "max_latency_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Latency Ms"
+        },
+        "max_response_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Response Bytes"
+        },
+        "require_status_in": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Require Status In",
+          "type": "array"
+        },
+        "require_substrings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Require Substrings",
+          "type": "array"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "source"
+      ],
+      "title": "ExpectedSafe",
+      "type": "object"
+    },
+    "HttpProbe": {
+      "additionalProperties": false,
+      "description": "One HTTP request against the target, path relative to the target base URL.",
+      "properties": {
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "json_body": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Json Body"
+        },
+        "method": {
+          "default": "POST",
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Query",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "HttpProbe",
+      "type": "object"
+    },
+    "ObservedResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "body_excerpt": {
+          "title": "Body Excerpt",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "latency_ms": {
+          "title": "Latency Ms",
+          "type": "integer"
+        },
+        "response_bytes": {
+          "title": "Response Bytes",
+          "type": "integer"
+        },
+        "status": {
+          "title": "Status",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tool Calls",
+          "type": "array"
+        },
+        "turn_index": {
+          "title": "Turn Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_index",
+        "status",
+        "latency_ms",
+        "response_bytes",
+        "body_excerpt"
+      ],
+      "title": "ObservedResponse",
+      "type": "object"
+    },
+    "OwaspLlm": {
+      "description": "OWASP Top 10 for LLM Applications \u2014 2023 taxonomy (per the assignment's naming order).",
+      "enum": [
+        "LLM01:2023-Prompt-Injection",
+        "LLM02:2023-Insecure-Output-Handling",
+        "LLM03:2023-Training-Data-Poisoning",
+        "LLM04:2023-Model-Denial-of-Service",
+        "LLM05:2023-Supply-Chain",
+        "LLM06:2023-Sensitive-Information-Disclosure",
+        "LLM07:2023-Insecure-Plugin-Design",
+        "LLM08:2023-Excessive-Agency",
+        "LLM09:2023-Overreliance",
+        "LLM10:2023-Model-Theft",
+        "n/a"
+      ],
+      "title": "OwaspLlm",
+      "type": "string"
+    },
+    "OwaspMapping": {
+      "additionalProperties": false,
+      "description": "Dual-taxonomy tag. The data-quality gate rejects a mapping where BOTH are ``n/a`` (F3).",
+      "properties": {
+        "justification": {
+          "default": "",
+          "title": "Justification",
+          "type": "string"
+        },
+        "llm": {
+          "$ref": "#/$defs/OwaspLlm"
+        },
+        "taxonomy_version": {
+          "default": "owasp-web-2021; owasp-llm-2023",
+          "title": "Taxonomy Version",
+          "type": "string"
+        },
+        "web": {
+          "$ref": "#/$defs/OwaspWeb"
+        }
+      },
+      "required": [
+        "web",
+        "llm"
+      ],
+      "title": "OwaspMapping",
+      "type": "object"
+    },
+    "OwaspWeb": {
+      "description": "OWASP Top 10 (web) \u2014 2021 taxonomy.",
+      "enum": [
+        "A01:2021-Broken-Access-Control",
+        "A02:2021-Cryptographic-Failures",
+        "A03:2021-Injection",
+        "A04:2021-Insecure-Design",
+        "A05:2021-Security-Misconfiguration",
+        "A06:2021-Vulnerable-Components",
+        "A07:2021-Auth-Failures",
+        "A08:2021-Software-Data-Integrity-Failures",
+        "A09:2021-Logging-Monitoring-Failures",
+        "A10:2021-SSRF",
+        "n/a"
+      ],
+      "title": "OwaspWeb",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Red Team \u2192 Judge. The generated attack + its observed target evidence.",
+  "properties": {
+    "auth_principal": {
+      "$ref": "#/$defs/AuthPrincipal"
+    },
+    "campaign_id": {
+      "title": "Campaign Id",
+      "type": "string"
+    },
+    "category": {
+      "$ref": "#/$defs/AttackCategory"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "expected_safe": {
+      "$ref": "#/$defs/ExpectedSafe"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "mutator": {
+      "default": "",
+      "title": "Mutator",
+      "type": "string"
+    },
+    "observed": {
+      "items": {
+        "$ref": "#/$defs/ObservedResponse"
+      },
+      "title": "Observed",
+      "type": "array"
+    },
+    "owasp": {
+      "$ref": "#/$defs/OwaspMapping"
+    },
+    "schema_version": {
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed Id"
+    },
+    "subcategory": {
+      "title": "Subcategory",
+      "type": "string"
+    },
+    "target_version": {
+      "title": "Target Version",
+      "type": "string"
+    },
+    "turns": {
+      "items": {
+        "$ref": "#/$defs/AttackTurn"
+      },
+      "title": "Turns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "category",
+    "subcategory",
+    "owasp",
+    "auth_principal",
+    "turns",
+    "expected_safe",
+    "target_version"
+  ],
+  "title": "AttackAttempt",
+  "type": "object"
+}
