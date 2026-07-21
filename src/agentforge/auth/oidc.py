@@ -68,7 +68,14 @@ class OidcClient:
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise OidcError(f"token endpoint unreachable: {exc}") from exc
         if resp.status_code != 200:
-            raise OidcError(f"token exchange failed (HTTP {resp.status_code})")
+            # Carry the provider's own error through. It is logged server-side and never rendered
+            # to the browser, and it is the difference between "the client is not enabled / needs a
+            # secret" (invalid_client) and "the code was already used" (invalid_grant) — a
+            # distinction a bare status code cannot make, and the one that costs a debugging cycle.
+            raise OidcError(
+                f"token exchange failed (HTTP {resp.status_code}): "
+                f"{resp.text[:300].replace(chr(10), ' ')}"
+            )
         payload = resp.json()
         if "id_token" not in payload:
             raise OidcError("token response has no id_token")

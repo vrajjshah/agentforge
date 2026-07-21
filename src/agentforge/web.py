@@ -262,7 +262,7 @@ async def callback(request: Request) -> Response:
         # the identity provider's internals. A token-exchange failure here usually means the
         # OpenEMR OAuth client has not been enabled by an admin yet.
         _log.warning("SSO callback: OIDC failure: %s", exc)
-        _audit_auth("sso_callback", "oidc_failure", request, reason=type(exc).__name__)
+        _audit_auth("sso_callback", "oidc_failure", request, reason=str(exc)[:300])
         return HTMLResponse(_sso_unavailable(), status_code=400)
     operator = claims_to_session(claims)
     if not is_authorized(operator, _sso):
