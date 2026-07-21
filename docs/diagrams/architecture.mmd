@@ -1,0 +1,30 @@
+%% AgentForge agent-interaction diagram (source of truth; rendered to architecture.svg).
+%% GitLab (labs.gauntletai.com) does not reliably render mermaid — the committed SVG is what
+%% the grader sees; this .mmd is kept for editability.
+flowchart TB
+    subgraph OBS[Observability · self-hosted Langfuse + coverage dashboard]
+        direction LR
+        O1[per-agent traces · cost · the 6 required metrics]
+    end
+
+    ORCH["ORCHESTRATOR (strategy)<br/>read-only on stores · triggers runs<br/>circuit breaker: HALT on no-signal"]
+    RT["RED TEAM (offense)<br/>deterministic mutation + Bedrock seed<br/>may call target · cannot judge itself"]
+    JUDGE["JUDGE (evaluation)<br/>tool-less · Bedrock Claude (indep. family)<br/>oracle = check-pack, not the Red Team"]
+    DOC["DOCUMENTATION (reporting)<br/>only writer to vuln DB<br/>human gate before CRITICAL"]
+    REG["REGRESSION HARNESS<br/>deterministic replays<br/>asserts the security property"]
+    TGT[("LIVE TARGET<br/>Clinical Co-Pilot (deployed)<br/>immutable allow-list")]
+    LEDGER[("EVENT LEDGER<br/>append-only, least-privilege")]
+    VDB[("VULN DB<br/>versioned, data-quality gated")]
+
+    ORCH -- "Campaign (capability grant)" --> RT
+    RT -- "AttackAttempt + evidence" --> JUDGE
+    JUDGE -- "Verdict" --> ORCH
+    JUDGE -- "confirmed Verdict" --> DOC
+    RT -- "HTTP via TargetAdapter" --> TGT
+    DOC -- "VulnReport" --> VDB
+    ORCH -- "trigger on target-version change" --> REG
+    REG -- "replay exploits" --> TGT
+    RT -. "append" .-> LEDGER
+    JUDGE -. "append" .-> LEDGER
+    ORCH -. "reads canonical input" .-> LEDGER
+    OBS -. "reads state" .-> ORCH

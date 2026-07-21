@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 660" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowLight" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="980" height="660" fill="#ffffff"/>
+  <text x="490" y="30" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">AgentForge — multi-agent adversarial evaluation loop</text>
+
+  <!-- Observability bar -->
+  <rect x="40" y="50" width="900" height="46" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="490" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">OBSERVABILITY · self-hosted Langfuse + coverage dashboard</text>
+  <text x="490" y="88" text-anchor="middle" font-size="12" fill="#64748b">per-agent traces · run cost · the 6 required metrics — also the Orchestrator's data substrate</text>
+
+  <!-- Agents row -->
+  <!-- Orchestrator -->
+  <rect x="40" y="150" width="250" height="96" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="165" y="176" text-anchor="middle" font-size="15" font-weight="700" fill="#1d4ed8">ORCHESTRATOR — strategy</text>
+  <text x="165" y="197" text-anchor="middle" font-size="11.5" fill="#334155">read-only on stores · triggers runs</text>
+  <text x="165" y="214" text-anchor="middle" font-size="11.5" fill="#334155">circuit breaker: HALT on no-signal</text>
+  <text x="165" y="233" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">trust: cannot write findings</text>
+
+  <!-- Red Team -->
+  <rect x="365" y="150" width="250" height="96" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <text x="490" y="176" text-anchor="middle" font-size="15" font-weight="700" fill="#b91c1c">RED TEAM — offense</text>
+  <text x="490" y="197" text-anchor="middle" font-size="11.5" fill="#334155">deterministic mutation + Bedrock seed</text>
+  <text x="490" y="214" text-anchor="middle" font-size="11.5" fill="#334155">non-Claude model (permissive)</text>
+  <text x="490" y="233" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">trust: may call target, cannot self-judge</text>
+
+  <!-- Judge -->
+  <rect x="690" y="150" width="250" height="96" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="815" y="176" text-anchor="middle" font-size="15" font-weight="700" fill="#15803d">JUDGE — evaluation</text>
+  <text x="815" y="197" text-anchor="middle" font-size="11.5" fill="#334155">tool-less · Bedrock Claude (indep. family)</text>
+  <text x="815" y="214" text-anchor="middle" font-size="11.5" fill="#334155">oracle = check-pack, not the Red Team</text>
+  <text x="815" y="233" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">trust: writes verdicts, cannot attack</text>
+
+  <!-- Second row: Regression, Target, Documentation -->
+  <rect x="40" y="320" width="250" height="86" rx="10" fill="#ecfeff" stroke="#06b6d4" stroke-width="2"/>
+  <text x="165" y="346" text-anchor="middle" font-size="14" font-weight="700" fill="#0e7490">REGRESSION HARNESS</text>
+  <text x="165" y="367" text-anchor="middle" font-size="11.5" fill="#334155">deterministic replays</text>
+  <text x="165" y="384" text-anchor="middle" font-size="11.5" fill="#334155">asserts the security property, not a 200</text>
+
+  <!-- Live target (cylinder) -->
+  <g>
+    <path d="M365,326 h250 v66 a125,10 0 0 1 -250,0 v-66 z" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+    <ellipse cx="490" cy="326" rx="125" ry="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+    <text x="490" y="352" text-anchor="middle" font-size="14" font-weight="700" fill="#334155">LIVE TARGET</text>
+    <text x="490" y="371" text-anchor="middle" font-size="11.5" fill="#475569">Clinical Co-Pilot (deployed)</text>
+    <text x="490" y="388" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">immutable allow-list</text>
+  </g>
+
+  <!-- Documentation -->
+  <rect x="690" y="320" width="250" height="86" rx="10" fill="#faf5ff" stroke="#a855f7" stroke-width="2"/>
+  <text x="815" y="346" text-anchor="middle" font-size="14" font-weight="700" fill="#7e22ce">DOCUMENTATION</text>
+  <text x="815" y="367" text-anchor="middle" font-size="11.5" fill="#334155">only writer to the vuln DB</text>
+  <text x="815" y="384" text-anchor="middle" font-size="11.5" fill="#334155">human gate before a CRITICAL report</text>
+
+  <!-- Stores -->
+  <rect x="150" y="500" width="290" height="70" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="295" y="527" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">EVENT LEDGER</text>
+  <text x="295" y="547" text-anchor="middle" font-size="11.5" fill="#475569">append-only · least-privilege writers</text>
+  <text x="295" y="563" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">Orchestrator's canonical input</text>
+
+  <rect x="540" y="500" width="290" height="70" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="685" y="527" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">VULN DB</text>
+  <text x="685" y="547" text-anchor="middle" font-size="11.5" fill="#475569">versioned · data-quality gated</text>
+  <text x="685" y="563" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">dual OWASP mapping required</text>
+
+  <!-- Solid message edges -->
+  <!-- Orchestrator -> Red Team -->
+  <line x1="290" y1="188" x2="363" y2="188" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="326" y="180" text-anchor="middle" font-size="10.5" fill="#334155">Campaign</text>
+  <text x="326" y="204" text-anchor="middle" font-size="9.5" fill="#64748b">(capability grant)</text>
+
+  <!-- Red Team -> Judge -->
+  <line x1="615" y1="188" x2="688" y2="188" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="651" y="180" text-anchor="middle" font-size="10.5" fill="#334155">AttackAttempt</text>
+  <text x="651" y="204" text-anchor="middle" font-size="9.5" fill="#64748b">+ evidence</text>
+
+  <!-- Judge -> Orchestrator (Verdict, curved back over the top) -->
+  <path d="M690,158 C520,120 340,120 175,148" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="432" y="122" text-anchor="middle" font-size="10.5" fill="#334155">Verdict → Orchestrator (coverage, cost)</text>
+
+  <!-- Judge -> Documentation -->
+  <line x1="815" y1="246" x2="815" y2="318" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="895" y="286" text-anchor="middle" font-size="10.5" fill="#334155">confirmed</text>
+  <text x="895" y="300" text-anchor="middle" font-size="10.5" fill="#334155">Verdict</text>
+
+  <!-- Red Team -> Live Target -->
+  <line x1="490" y1="246" x2="490" y2="318" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="565" y="288" text-anchor="middle" font-size="10.5" fill="#334155">HTTP via</text>
+  <text x="565" y="302" text-anchor="middle" font-size="10.5" fill="#334155">TargetAdapter</text>
+
+  <!-- Documentation -> Vuln DB -->
+  <line x1="770" y1="406" x2="710" y2="498" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="792" y="455" text-anchor="middle" font-size="10.5" fill="#334155">VulnReport</text>
+
+  <!-- Orchestrator -> Regression -->
+  <line x1="165" y1="246" x2="165" y2="318" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="165" y="286" text-anchor="middle" font-size="10" fill="#334155">trigger on</text>
+  <text x="165" y="300" text-anchor="middle" font-size="10" fill="#334155">version change</text>
+
+  <!-- Regression -> Live Target -->
+  <line x1="290" y1="360" x2="362" y2="360" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="326" y="352" text-anchor="middle" font-size="10" fill="#334155">replay</text>
+
+  <!-- Dashed ledger edges -->
+  <line x1="440" y1="230" x2="330" y2="498" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrowLight)"/>
+  <line x1="740" y1="240" x2="360" y2="512" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrowLight)"/>
+  <path d="M240,500 C210,420 150,320 150,250" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrowLight)"/>
+  <text x="120" y="440" text-anchor="middle" font-size="10" fill="#64748b" transform="rotate(-78 120 440)">reads canonical input</text>
+  <text x="470" y="360" text-anchor="start" font-size="10" fill="#94a3b8">append (all agents)</text>
+
+  <text x="490" y="628" text-anchor="middle" font-size="11" fill="#64748b">Distinct agents · distinct trust levels · distinct model families. Deterministic-first; Bedrock only for novel seeds + the narrow semantic Judge.</text>
+</svg>
