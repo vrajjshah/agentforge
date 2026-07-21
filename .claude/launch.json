@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "agentforge-web",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "uvicorn", "agentforge.web:app", "--host", "127.0.0.1", "--port", "8140"],
+      "port": 8140
+    }
+  ]
+}
