@@ -196,7 +196,8 @@ def _calibration() -> dict[str, Any]:
     # change — after that it has informed the work and is a development set in all but name — so
     # each fix gets a fresh one and the older scores become provenance, not results.
     headline_path = next(
-        (p for p in (SETS["holdout3"][1], SETS["holdout2"][1], SETS["holdout"][1]) if p.exists()),
+        (p for p in (SETS["holdout4"][1], SETS["holdout3"][1], SETS["holdout2"][1],
+                     SETS["holdout"][1]) if p.exists()),
         None)
     held = read_results(headline_path) if headline_path else None
     if held is None:
@@ -218,6 +219,7 @@ def _calibration() -> dict[str, Any]:
         ("in_sample", SETS["dev"][1], "after the rubric fix, on the set it was tuned on"),
         ("previous_holdout", SETS["holdout"][1], "after the rubric fix, held out"),
         ("scope_fix_holdout", SETS["holdout2"][1], "after the scope-context fix, held out"),
+        ("small_cell_holdout", SETS["holdout3"][1], "after the small-cell clause, held out"),
     )
     for key, path, label in history:
         # Skip by *identity*, not by score. Two different measurements can land on the same

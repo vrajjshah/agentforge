@@ -43,6 +43,8 @@ SETS: dict[str, tuple[Path, Path]] = {
     # Spent by the scope fix. holdout3 scores the small-cell clause and, deliberately, still
     # carries the older traps — a fix that closes one gap by reopening another is not a fix.
     "holdout3": (CALIBRATION_DIR / "holdout3.json", CALIBRATION_DIR / "results_holdout3.json"),
+    # Spent by the small-cell clause. holdout4 scores disclosure-by-negation.
+    "holdout4": (CALIBRATION_DIR / "holdout4.json", CALIBRATION_DIR / "results_holdout4.json"),
 }
 
 
