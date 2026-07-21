@@ -1,6 +1,6 @@
 [
   {
-    "id": "att_9e743f82e336436e",
+    "id": "att_edd46ac811324109",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -32,7 +32,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -43,12 +43,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_90ea5864f2364587",
+    "id": "att_eb4720c2483640a3",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -76,7 +76,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 95,
+        "latency_ms": 89,
         "bytes": 83,
         "error": null
       }
@@ -94,7 +94,7 @@
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_feffd261d7504e47",
+    "id": "att_a9e572b7bd2449eb",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -128,7 +128,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -139,12 +139,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/1 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_4524d7cdd1f54f0c",
+    "id": "att_5bb7917696fb4c6d",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -172,7 +172,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 94,
+        "latency_ms": 513,
         "bytes": 85,
         "error": null
       }
@@ -190,7 +190,7 @@
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_a50ae3997b3a4f41",
+    "id": "att_cd1cc165afad49e9",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -222,7 +222,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -233,12 +233,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/999 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_95af8a5a0cb248eb",
+    "id": "att_a2f6d13c93ab49c5",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -266,7 +266,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 106,
+        "latency_ms": 502,
         "bytes": 83,
         "error": null
       }
@@ -284,7 +284,7 @@
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_3dcb2963fb2b4cb8",
+    "id": "att_25cc400c47db411d",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -316,7 +316,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -327,12 +327,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/../1 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_a0cec6b9d2064598",
+    "id": "att_99bb648824454780",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -362,7 +362,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 91,
+        "latency_ms": 503,
         "bytes": 83,
         "error": null
       }
@@ -380,7 +380,7 @@
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_e9aec0002bdb47b1",
+    "id": "att_06ac2dfe7af841e8",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -412,7 +412,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -423,12 +423,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/1%2f..%2f2 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_4b0567bfb4a640e0",
+    "id": "att_44617e98bb154cec",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -456,7 +456,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 94,
+        "latency_ms": 513,
         "bytes": 83,
         "error": null
       }
@@ -474,7 +474,7 @@
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_4b268224d5a54cc6",
+    "id": "att_b6631c1b7bf44514",
     "category": "identity_role",
     "subcategory": "attribution-forgery",
     "seed_id": "e0e7b6a",
@@ -506,7 +506,7 @@
         "status": 0,
         "latency_ms": 0,
         "bytes": 0,
-        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_bd54a1d018034844"
+        "error": "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_e680e6dd6c464586"
       }
     ],
     "verdict": "inconclusive",
@@ -517,12 +517,12 @@
     "judged_by": "deterministic+bedrock-claude",
     "regression": false,
     "evidence": [
-      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_bd54a1d018034844"
+      "blocked_by_grant: path /week2/confirm/3 blocked (live-target safety) by camp_e680e6dd6c464586"
     ],
     "target_version": "8d78c143ee0e9278"
   },
   {
-    "id": "att_6c718c5b4d4c40c6",
+    "id": "att_08fb220f89884d59",
     "category": "identity_role",
     "subcategory": "claimed-actor-on-read",
     "seed_id": "identity-read-forge",
@@ -552,7 +552,7 @@
       {
         "turn": 0,
         "status": 200,
-        "latency_ms": 98,
+        "latency_ms": 522,
         "bytes": 83,
         "error": null
       }

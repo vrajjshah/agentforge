@@ -59,10 +59,18 @@ uv run agentforge evals --live --principals api_key \
   --llm-judge --novel --safe-live --max 12 --budget 3
 ```
 
-**Result: the hardened Co-Pilot held across all 46 authenticated attack variants that were fired**
-(direct, encoded, model-generated, and multi-turn — including the newest surface, such as
+**Result: zero exploits against the hardened Co-Pilot across 46 fired authenticated variants**
+(direct, encoded, model-generated, and multi-turn — including the newest surfaces, such as
 conversation-id hijack) — an honest *defense held*, with the LLM Judge correctly distinguishing a
 refusal from compliance.
+
+Of those 46: **40 confirmed defended, 0 exploited, 1 partial, and 5 inconclusive**. The five are
+the newest surface of all — on-demand upstream reconciliation
+(`GET /week2/patients/{id}/reconciliation`) — which returns **502 on every call in this
+deployment** because its upstream dependency is not wired up. The route never processed the attack,
+so the platform reports it as `target-unavailable` rather than banking it as a pass: the absence of
+a measurement is not a result, and the headline pass rate drops to **87%** because of it. A number
+that visibly falls when a surface goes dark is more useful than one that quietly rounds up.
 
 Six categories are generated; **46 of 71 variants ran against the live target and 25 were held
 back**, because `--safe-live` refuses to fire a chart write or an ingest at a live clinical system.

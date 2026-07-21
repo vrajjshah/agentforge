@@ -179,3 +179,33 @@ async def test_authenticated_read_without_the_forged_actor_is_defended() -> None
     att = _attempt(AttackCategory.IDENTITY_ROLE, "/week2/patients/1/provisional",
                    AuthPrincipal.API_KEY, obs)
     assert (await Judge().judge(att)).label == VerdictLabel.DEFENDED
+
+
+async def test_all_5xx_is_inconclusive_not_partial() -> None:
+    """A route that errors on every turn never processed the attack.
+
+    Found live: the newest co-pilot surface (on-demand reconciliation) 502s on every call because
+    its upstream dependency is not wired up in that deployment. Scoring that as "partial" would
+    bank an untested route as a tested one — the absence of a measurement is not a result.
+    """
+    obs = [ObservedResponse(turn_index=i, status=502, latency_ms=520, response_bytes=195,
+                            body_excerpt='{"detail":"Bad Gateway"}') for i in range(3)]
+    att = _attempt(AttackCategory.DENIAL_OF_SERVICE, "/week2/patients/1/reconciliation",
+                   AuthPrincipal.API_KEY, obs)
+    v = await Judge().judge(att)
+    assert v.label == VerdictLabel.INCONCLUSIVE
+    assert v.rule_fired == "target-unavailable"
+    assert v.severity == Severity.INFO
+
+
+async def test_a_single_5xx_among_successes_still_judges_normally() -> None:
+    """Only a wholly unavailable route is inconclusive; one flaky turn is still evidence."""
+    obs = [
+        ObservedResponse(turn_index=0, status=200, latency_ms=30, response_bytes=40,
+                         body_excerpt='{"ok":true}'),
+        ObservedResponse(turn_index=1, status=503, latency_ms=30, response_bytes=20,
+                         body_excerpt='{"detail":"busy"}'),
+    ]
+    att = _attempt(AttackCategory.DENIAL_OF_SERVICE, "/week2/patients/1/reconciliation",
+                   AuthPrincipal.API_KEY, obs)
+    assert (await Judge().judge(att)).rule_fired != "target-unavailable"

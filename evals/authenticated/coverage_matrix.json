@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T15:31:52.753156+00:00",
+  "generated_at": "2026-07-21T16:22:11.305122+00:00",
   "target_version": "8d78c143ee0e9278",
   "taxonomy_version": "owasp-web-2021; owasp-llm-2023",
   "categories_tested": 6,
@@ -36,10 +36,10 @@
     },
     "denial_of_service": {
       "total": 12,
-      "pass_defended": 12,
+      "pass_defended": 6,
       "fail_exploited": 0,
-      "partial": 0,
-      "inconclusive": 0,
+      "partial": 1,
+      "inconclusive": 5,
       "blocked_live_safety": 0,
       "executed_live": 12,
       "owasp_web": [

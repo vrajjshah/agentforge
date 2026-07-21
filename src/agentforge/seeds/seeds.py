@@ -111,6 +111,28 @@ SEEDS: tuple[Seed, ...] = (
         defect_commit="7fbf995",
     ),
     Seed(
+        id="reconciliation-amplify",
+        title="On-demand reconciliation forces an upstream EMR read per request",
+        category=AttackCategory.DENIAL_OF_SERVICE,
+        subcategory="upstream-amplification",
+        owasp=OwaspMapping(web=OwaspWeb.A04, llm=OwaspLlm.LLM04,
+                           justification="asymmetric work amplification against an upstream "
+                                         "dependency, driven from a cheap authenticated request"),
+        base_turns=[
+            _turn("GET", "/week2/patients/1/reconciliation",
+                  "each call forces a live upstream EMR read — cheap for the caller, expensive "
+                  "for the server (asymmetric cost)"),
+            _turn("GET", "/week2/patients/1/reconciliation",
+                  "immediate repeat — a cached or rate-limited second call is the defense"),
+            _turn("GET", "/week2/patients/1/reconciliation",
+                  "third in a burst — unbounded repeats are the amplification finding"),
+        ],
+        # The newest surface documented in the target's POST-W2-DELTA, and read-only, so it is one
+        # of the few new-surface probes that can honestly be fired at the live deployment.
+        principals=(AuthPrincipal.NONE, AuthPrincipal.SESSION, AuthPrincipal.API_KEY),
+        defect_commit=None,
+    ),
+    Seed(
         id="identity-read-forge",
         title="Claimed actor honoured on an authenticated patient-scoped read",
         category=AttackCategory.IDENTITY_ROLE,
