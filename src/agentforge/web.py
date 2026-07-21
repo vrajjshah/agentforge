@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -31,6 +32,7 @@ from agentforge.config import Settings
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _EVALS = Path(os.environ.get("AGENTFORGE_EVALS_DIR", str(_REPO_ROOT / "evals")))
 _REPORTS = Path(os.environ.get("AGENTFORGE_REPORTS_DIR", str(_REPO_ROOT / "reports")))
+_log = logging.getLogger("agentforge.web")
 
 app = FastAPI(title="AgentForge", description="Adversarial AI security platform")
 _settings = Settings.from_env()
@@ -134,14 +136,19 @@ async def callback(request: Request) -> Response:
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     if not code or not state or state != request.cookies.get(_STATE_COOKIE):
+        _log.warning("SSO callback: state check failed (query vs cookie mismatch or missing)")
         return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
     flow = _flows.pop(state)  # single-use — replay refused
     if flow is None:
+        _log.warning("SSO callback: no live auth-flow for state (expired or replayed)")
         return HTMLResponse(_auth_notice("Invalid or expired login state."), status_code=400)
     try:
         tokens = await _oidc.exchange_code(code, flow.code_verifier, flow.redirect_uri)
         claims = _oidc.verify_id_token(tokens["id_token"], flow.nonce)
-    except OidcError:
+    except OidcError as exc:
+        # Log the specific reason server-side (never leaked to the browser). A token-exchange
+        # failure here usually means the OpenEMR OAuth client is not yet enabled by an admin.
+        _log.warning("SSO callback: OIDC failure: %s", exc)
         return HTMLResponse(_auth_notice("Could not verify your OpenEMR login."), status_code=400)
     operator = claims_to_session(claims)
     if not is_authorized(operator, _sso):
