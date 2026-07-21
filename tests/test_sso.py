@@ -35,7 +35,7 @@ def _cfg(**kw: Any) -> SsoConfig:
     base = dict(client_id=_CLIENT, client_secret="secret", issuer=_ISSUER,
                 redirect_uri="https://af.test/callback", scope="openid profile email fhirUser",
                 operator_allowlist=(), operator_roles=("admin", "security-operator"),
-                require_sso=True, cookie_secure=True)
+                operator_names={}, require_sso=True, cookie_secure=True)
     base.update(kw)
     return SsoConfig(**base)  # type: ignore[arg-type]
 
@@ -464,3 +464,33 @@ async def test_userinfo_404_is_survivable(rsa_keys: tuple[Any, Any]) -> None:
     assert profile == {}
     session = claims_to_session({"sub": "u-1"}, profile)
     assert session.subject == "u-1"
+
+
+def test_a_configured_operator_name_is_used_when_the_issuer_has_none() -> None:
+    """The only place a real name can come from for this issuer.
+
+    Its id_token carries no profile claims and its advertised userinfo endpoint 404s, so a local
+    subject -> name map is what is left. Presentation only.
+    """
+    from agentforge import web
+
+    uuid = "a2348815-c7ae-4eea-bb78-34517eef9cee"
+    cfg = _cfg(operator_names={uuid: "Vraj Shah"})
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(web, "_sso", cfg)
+        label, tooltip = web._operator_label(claims_to_session({"sub": uuid}))
+    assert label == "Vraj Shah"
+    assert uuid in tooltip                      # the principal is still one hover away
+
+
+def test_a_configured_name_never_affects_authorization() -> None:
+    """Naming an operator must not admit them: the allow-list is separate and still empty."""
+    uuid = "a2348815-c7ae-4eea-bb78-34517eef9cee"
+    cfg = _cfg(operator_names={uuid: "Vraj Shah"}, operator_allowlist=(), operator_roles=())
+    assert not is_authorized(claims_to_session({"sub": uuid}), cfg)
+
+
+def test_operator_name_map_parses_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENTFORGE_SSO_OPERATOR_NAMES", "uuid-1=Vraj Shah, uuid-2 = Dr Ada ")
+    names = SsoConfig.from_env().operator_names
+    assert names == {"uuid-1": "Vraj Shah", "uuid-2": "Dr Ada"}

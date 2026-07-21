@@ -490,8 +490,11 @@ def _operator_label(operator: OperatorSession) -> tuple[str, str]:
     # the userinfo_endpoint its own discovery document advertises returns 404 — a short prefix of
     # the subject is the most useful honest label left: enough to tell two operators apart at a
     # glance, without dumping a uuid nobody can read.
+    # A locally configured name wins: the issuer has none to give, so this is the only place a
+    # real one can come from. Presentation only — RBAC still matches on the verified subject.
+    configured = _sso.operator_names.get(operator.subject)
     has_human_name = operator.name and operator.name != operator.subject
-    label = (operator.name if has_human_name
+    label = (configured or operator.name if (configured or has_human_name)
              else f"OpenEMR operator · {operator.subject[:8]}")
     detail = operator.email or operator.subject
     return label, f"authenticated security-operator · {detail}"

@@ -65,7 +65,8 @@ def web_app(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     monkeypatch.setattr(web, "_sso", SsoConfig(
         client_id="cid", client_secret="", issuer="https://idp.test/oauth2/default",
         redirect_uri="https://af.test/callback", scope="openid", operator_allowlist=(),
-        operator_roles=("admin",), require_sso=False, cookie_secure=False))
+        operator_roles=("admin",), operator_names={}, require_sso=False,
+        cookie_secure=False))
     monkeypatch.setenv("AGENTFORGE_ADMIN_TOKEN", _TOKEN)
     return web
 

@@ -21,6 +21,7 @@ class SsoConfig:
     scope: str
     operator_allowlist: tuple[str, ...]     # authorized principals (sub / fhirUser / email)
     operator_roles: tuple[str, ...]         # authorized role claims, if the id_token carries roles
+    operator_names: dict[str, str]          # subject -> display name, for a name-less issuer
     require_sso: bool
     cookie_secure: bool
 
@@ -56,6 +57,19 @@ class SsoConfig:
             raw = os.environ.get(name, default)
             return tuple(x.strip() for x in raw.split(",") if x.strip())
 
+        def name_map(name: str) -> dict[str, str]:
+            """``sub=Display Name`` pairs, comma-separated.
+
+            A local operator directory, needed because this issuer exposes no name by any route:
+            its id_token carries aud/iss/iat/exp/sub/nonce, and the ``userinfo_endpoint`` its own
+            discovery document advertises returns 404. The alternative — granting this dashboard
+            ``user/Person.read`` so it can fetch its own operator's FHIR record — would hand a
+            security console EMR read access to render a label, which is a bad trade. This is
+            presentation only: authorization still matches on the verified ``sub``.
+            """
+            pairs = (p.split("=", 1) for p in os.environ.get(name, "").split(",") if "=" in p)
+            return {k.strip(): v.strip() for k, v in pairs if k.strip() and v.strip()}
+
         return cls(
             client_id=os.environ.get("AGENTFORGE_SSO_CLIENT_ID", ""),
             client_secret=os.environ.get("AGENTFORGE_SSO_CLIENT_SECRET", ""),
@@ -66,6 +80,7 @@ class SsoConfig:
             operator_allowlist=csv("AGENTFORGE_SSO_OPERATOR_ALLOWLIST"),
             operator_roles=csv("AGENTFORGE_SSO_OPERATOR_ROLES",
                                "admin,security-operator,administrator"),
+            operator_names=name_map("AGENTFORGE_SSO_OPERATOR_NAMES"),
             require_sso=os.environ.get("AGENTFORGE_SSO_REQUIRE", "0") in ("1", "true", "yes"),
             cookie_secure=os.environ.get("AGENTFORGE_SSO_COOKIE_SECURE",
                                          "1" if os.environ.get("PORT") else "0")
