@@ -1,0 +1,111 @@
+# ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+# │ The same five checks as .githooks/pre-push, run on a machine that is not the author's.        │
+# │                                                                                               │
+# │ The hook is the PRIMARY gate and stays that way — it is the one that has been watched         │
+# │ blocking a planted failure (docs/GATE_LEDGER.md control 1). This workflow layers on top so    │
+# │ the gate also runs somewhere else, which is the only way it catches "works on mine": an       │
+# │ unpinned dependency, a test that passes only because a local .env exists, a file that was     │
+# │ never committed, a test that encodes the author's hardware.                                   │
+# │                                                                                               │
+# │ That last one is not hypothetical. See docs/GATE_LEDGER.md control 32.                        │
+# └──────────────────────────────────────────────────────────────────────────────────────────────┘
+#
+# ─── Carried forward from the retired .gitlab-ci.yml, because the traps are the interesting part ──
+#
+# LESSON 1 — a declared environment that is never exercised.
+#   The first CI proof for this repo ran on a GitLab *shell* executor, which silently ignores
+#   `image:`. So it executed on the author's laptop (arch=arm64 os=darwin) against a uv-managed
+#   venv, and the `python:3.12-slim` the config declared was never used. The gate did fire and the
+#   red-then-green was real, but "proven on the declared environment" claimed coverage the evidence
+#   did not support.
+#
+#   Re-proving it on the real image immediately found a defect the first proof structurally could
+#   not: `test_bottleneck_is_the_llm_rung_once_it_is_sampled` asserted `llm_share_of_time_pct > 90`.
+#   True at 99.5% on a laptop; 89.4% inside the container, because the deterministic phases are
+#   slower there. It now asserts the *relationship* (the rung's share exceeds the whole
+#   deterministic pipeline and rises monotonically with the firing rate), which is host-independent.
+#
+#   That is why `container:` below is not decoration. The job runs INSIDE python:3.12-slim, so the
+#   environment this file declares is the environment the checks actually see. A workflow that
+#   declared an image and then ran on the runner's own Python would reintroduce exactly the gap
+#   that made the first proof worthless.
+#
+# LESSON 2 — coverage decided in two places drifts, and the drift is silent.
+#   The GitLab `gate` job carried `rules: [if: $CI_COMMIT_BRANCH, if: $CI_MERGE_REQUEST_IID]`,
+#   NARROWER than the `workflow:` rule that decides whether a pipeline is created at all. A tag
+#   pipeline sets neither variable, so no job matched — and GitLab does not warn "no jobs", it
+#   declines to create the pipeline. Probed on tag `ci-probe-before`: zero pipelines, no error, no
+#   notification. Tagging a release would have run zero checks while looking exactly like a repo
+#   with a green gate. Worse than a visible failure, because the expected failure is visible.
+#
+#   Found because the sibling co-pilot repo hit the same root cause from the opposite side: there
+#   `golden-gate` was rule-restricted while `lint` and `security` were not, so a manually-triggered
+#   pipeline ran two of three jobs and reported SUCCESS — a green badge with the test suite missing.
+#   Same cause, opposite symptom, neither caught by the thing meant to catch it.
+#
+#   The invariant, preserved here: if this workflow triggers at all, the whole gate runs in it.
+#   `on:` below is the ONE place coverage is decided — branches and tags, pull requests, and manual
+#   dispatch. There is deliberately no job-level `if:` and deliberately only one job, so there is no
+#   second place for the two to drift apart.
+#
+# Nothing here needs a secret. The suite is hermetic by design (no network, no Bedrock, no live
+# target: pytest is configured with `-m 'not live'`), which is verified by the absence of any `env:`
+# credentials below — if a test ever needed one to pass, this job would fail, and that would be the
+# correct outcome rather than something to paper over with a repository secret.
+
+name: gate
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # The declared environment is the executed environment. See LESSON 1 above.
+    container: python:3.12-slim
+    env:
+      # Fail on a lockfile that does not match pyproject.toml rather than silently resolving around it.
+      UV_FROZEN: "1"
+      UV_CACHE_DIR: /tmp/uv-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      # Same order as .githooks/pre-push, cheapest first, so a lint break fails in seconds.
+      - name: ruff
+        run: uv run ruff check src tests
+
+      - name: mypy
+        run: uv run mypy src
+
+      - name: pytest
+        run: uv run pytest
+
+      - name: bandit
+        run: uv run bandit -q -r src
+
+      # Audits the project's locked dependency tree, not the image's system interpreter: `uv sync`
+      # builds a venv with no `pip` in it. Worth stating because the sibling co-pilot pipeline DID
+      # fail here on six CVEs in the pip bundled in python:3.12-slim, and the prediction that this
+      # one would fail the same way was wrong. Same image, same tool, different scope.
+      - name: pip-audit
+        run: uv run pip-audit
