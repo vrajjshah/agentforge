@@ -245,22 +245,40 @@ been watched blocking a planted failure and then passing — every control in
 [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md) ships with that proof, because a gate that has never
 been executed on anything has never told you anything.
 
-`.gitlab-ci.yml` runs the identical five checks and is **live** — every push and merge request, on
-**runner 192**: project-scoped, **docker executor**, image `python:3.12-slim`, on an always-on
-droplet under systemd. Proven red-then-green on that executor:
-[job 55744](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55744) RED on a planted
-`assert 1 == 2`, [job 55750](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55750) GREEN on
-all five, and main [pipeline 16108](https://labs.gauntletai.com/vrajshah/agentforge/-/pipelines/16108)
-green. The planted failure was pushed with `--no-verify` so the pre-push hook could not pre-empt the
-gate CI was being asked to prove. **The pre-push hook remains the primary gate**; CI is the copy that
-runs somewhere other than the author's machine.
+[`.github/workflows/gate.yml`](.github/workflows/gate.yml) runs the identical five checks inside
+`container: python:3.12-slim`, on branch pushes, tag pushes, pull requests and manual dispatch.
+Proven red-then-green:
+[run 29951154890](https://github.com/vrajjshah/agentforge/actions/runs/29951154890) RED on a planted
+`assert 1 == 2`, [run 29951258446](https://github.com/vrajjshah/agentforge/actions/runs/29951258446)
+GREEN on all five. The planted failure was pushed with `--no-verify` so the pre-push hook could not
+pre-empt the gate CI was being asked to prove. **The pre-push hook remains the primary gate**; CI is
+the copy that runs somewhere other than the author's machine.
 
-An earlier version of this proof ran on a **shell executor**, which ignores `image:` — so the
-declared environment was never exercised, and the ledger claimed more than the evidence supported.
-Re-doing it properly paid for itself on the first run: it caught a test asserting
-`llm_share_of_time_pct > 90`, true on a laptop and **89.4% in a container**. A performance test that
-encodes the author's hardware reports the machine it ran on. That is the "works on mine" class CI
-exists for, and precisely what a same-machine proof cannot find. Details in
+Two things that gate is deliberately built to survive, both learned the expensive way:
+
+- **The declared environment is the executed environment.** An earlier version of this proof ran on
+  a GitLab **shell executor**, which silently ignores `image:` — so it ran on the author's laptop
+  and the declared container was never exercised, meaning the ledger claimed more than the evidence
+  supported. Re-doing it properly paid for itself on the first run: it caught a test asserting
+  `llm_share_of_time_pct > 90`, true on a laptop and **89.4% in a container**. A performance test
+  that encodes the author's hardware reports the machine it ran on, not the property it claims to
+  check. That is the "works on mine" class CI exists for, and precisely what a same-machine proof
+  cannot find.
+- **Coverage is decided in exactly one place.** The GitLab config carried job-level rules *narrower*
+  than the rule deciding whether a pipeline existed at all, so a **tag push ran nothing — silently.**
+  Not a red badge, not a notification: no pipeline. Tagging a release would have looked identical to
+  a repo with a green gate. The Actions port was re-probed for the same hole
+  ([run 29951709509](https://github.com/vrajjshah/agentforge/actions/runs/29951709509), from a tag
+  push, green) and has one job and no job-level conditions, so there is no second place to drift.
+
+> **Infrastructure note — 2026-07-22.** The original proof ran on GitLab CI at
+> `labs.gauntletai.com` against a self-hosted runner on a DigitalOcean droplet. Both are
+> decommissioned; those job and pipeline URLs are archived and **will not resolve**. The claims
+> stand on the trace lines, which are quoted inline in
+> [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md), along with the two defects the migration itself
+> surfaced. `.gitlab-ci.yml` was deleted rather than left describing a control that no longer exists.
+
+Details, including the full proof-of-firing table for every control, in
 [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md).
 
 ## Submission URLs

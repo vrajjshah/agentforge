@@ -42,13 +42,76 @@ and the reproducible evidence command.
 | 30 | **Strict CSP + no framing** | web | request any page and inspect headers | `default-src 'none'`, `frame-ancestors 'none'`, `nosniff`, `DENY` present | — (headers are unconditional) | `pytest tests/test_web_gating.py::test_security_headers_are_set` |
 | 31 | **Errors never leak internals** | web | raise inside a request handler | generic 500 page; the exception text and traceback stay in the log | normal request → 200 | `pytest tests/test_web_gating.py::test_unhandled_errors_do_not_leak_internals` |
 | 32 | **Every break-glass access is on the record** | web | submit a wrong operator token, then the right one | both appear in the ledger as `auth_access` (`denied`, then `granted`), written by the least-privilege `web` writer; the token value appears nowhere | a `web` writer attempting any other event type → `WriterNotAuthorized` | `pytest tests/test_web_gating.py::test_break_glass_use_is_recorded_in_the_ledger` · `::test_ledger_writer_for_auth_is_least_privilege` |
-| 32 | **GitLab CI pipeline** (same five checks, on a machine that is not the author's, in the image the config declares) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed to a branch with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [job 55744](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55744) RED — `Using Docker executor with image python:3.12-slim`, `FAILED tests/test_planted_failure.py - assert 1 == 2` | remove it, push → [job 55750](https://labs.gauntletai.com/vrajshah/agentforge/-/jobs/55750) GREEN, all five checks, `Job succeeded`; main [pipeline 16108](https://labs.gauntletai.com/vrajshah/agentforge/-/pipelines/16108) success | runner 192, docker executor, systemd on 45.55.53.165 |
+| 33 | **CI pipeline** (same five checks, on a machine that is not the author's, in the image the config declares) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [run 29951154890](https://github.com/vrajjshah/agentforge/actions/runs/29951154890) RED — `FAILED tests/test_planted_failure.py - assert 1 == 2`, `1 failed, 160 passed` | remove it, push → [run 29951258446](https://github.com/vrajjshah/agentforge/actions/runs/29951258446) GREEN, all five checks | `.github/workflows/gate.yml`, GitHub-hosted runner, `container: python:3.12-slim` |
+| 34 | **A tag push runs the gate** (the hole that was silent on GitLab) | CI | push tag `ci-probe-gha` | a run is created and the full gate executes in it | — (the probe *is* the pass: the failure mode being excluded is "no run at all") | [run 29951709509](https://github.com/vrajjshah/agentforge/actions/runs/29951709509) success, `event: push`, ref `ci-probe-gha`; probe tag deleted, run record kept |
 
-## The CI pipeline: live, and what re-proving it properly cost
+## The CI pipeline: what it runs on now, and what re-proving it properly cost
 
-`.gitlab-ci.yml` runs the same five checks as the pre-push hook, on **runner 192 `agentforge-ci`** —
-project-scoped, **docker executor**, image `python:3.12-slim`, on an always-on droplet under systemd
-(`enabled` + `active`, survives reboot). It runs on **every push and merge request**. See control 32.
+> **Infrastructure note — 2026-07-22.** This gate has been **migrated to GitHub Actions**
+> (`.github/workflows/gate.yml`) and re-proven red-then-green there; see controls 33 and 34.
+> `.gitlab-ci.yml` was deleted in the same change. The original proof ran on GitLab CI at
+> `labs.gauntletai.com` against a self-hosted runner on a DigitalOcean droplet — **both are
+> decommissioned, so every `labs.gauntletai.com` link below is archived and will not resolve.**
+> The claims those links supported are real, so the decisive trace lines are quoted inline instead
+> of being deleted or softened. Raw traces are retained outside this repo in
+> `gitlab-evidence-archive/` (jobs 55608, 55610, 55744, 55750 + 43 pipeline records).
+>
+> The lessons in this section are kept in full and carried forward into the comments of
+> `.github/workflows/gate.yml`, because the traps are the interesting part, not the vendor.
+
+The gate runs the same five checks as the pre-push hook, in the same order, inside
+`container: python:3.12-slim` on a GitHub-hosted runner. If the workflow triggers at all — branch
+push, tag push, pull request, or manual dispatch — the whole gate runs in it.
+
+**Archived: the GitLab configuration this replaced.** Runner 192 `agentforge-ci` — project-scoped,
+**docker executor**, image `python:3.12-slim`, on an always-on droplet under systemd (`enabled` +
+`active`, survives reboot). Decisive lines from the retained traces:
+
+```
+job 55744 (RED)    Using Docker executor with image python:3.12-slim ...
+                   FAILED tests/test_planted_failure.py::test_planted_failure - assert 1 == 2
+                   FAILED tests/test_loadtest.py::test_bottleneck_is_the_llm_rung_once_it_is_sampled
+                                                                              - assert 89.4 > 90
+                   2 failed, 159 passed, 10 warnings in 10.28s
+                   ERROR: Job failed: exit code 1
+
+job 55750 (GREEN)  Using Docker executor with image python:3.12-slim ...
+                   $ uv run ruff check src tests   → All checks passed!
+                   $ uv run mypy src               → Success: no issues found in 50 source files
+                   $ uv run pytest                 → 160 passed, 10 warnings in 8.58s
+                   $ uv run bandit -q -r src
+                   $ uv run pip-audit              → No known vulnerabilities found
+                   Job succeeded
+```
+
+Note what the RED trace actually caught: **two** failures, not one. The planted `assert 1 == 2`,
+and `assert 89.4 > 90` — a real host-dependent defect the plant had nothing to do with. That second
+line is the entire argument for running the gate somewhere other than the author's laptop, and it
+is visible in the same trace that proves the gate fires.
+
+The GitHub Actions re-proof reproduced the same shape on the new substrate:
+
+```
+run 29951154890 (RED)     ruff → All checks passed!
+                          FAILED tests/test_planted_failure.py::test_planted_failure - assert 1 == 2
+                          1 failed, 160 passed, 10 warnings in 3.08s
+                          bandit and pip-audit never ran — the cheapest-first ladder stops at the
+                          first failure, which is the intended behaviour, not a gap in coverage
+
+run 29951258446 (GREEN)   ruff · mypy (50 source files) · 160 passed · bandit · pip-audit
+                          No known vulnerabilities found
+```
+
+**Two defects the migration itself surfaced, recorded because they were found by running it rather
+than reading it — the same rule this ledger applies to everything else.** First, the workflow
+declared `UV_CACHE_DIR: /tmp/uv-cache` and the run log showed `setup-uv` overriding it with its own
+path: a declared setting that never took effect. Harmless, and precisely the shape of the shell-
+executor defect below, one layer down. It was removed rather than left standing. Second, pinning
+`astral-sh/setup-uv@v9` — inferred from the latest release's `tag_name` of `v9.0.0` — failed at
+`Set up job` with `unable to find version v9`: that action publishes floating major aliases only
+through `v7`, while `v8` and `v9` exist as exact releases only. Both actions are now pinned to a
+**commit SHA**, which removes the guess and also closes the larger hole, since a floating major tag
+is mutable by the action's owner and amounts to a standing grant to run whatever they publish next.
 
 **The first version of this proof was not good enough, and the ledger said more than it had earned.**
 That run used a **shell executor**, which silently ignores `image:` — so it executed on the author's
@@ -94,6 +157,16 @@ were deleted; the pipeline records remain as the evidence.
 | tag push | **no pipeline created — silent** | pipeline 16120, `gate` success |
 | branch push | pipeline 16104, 1 job | pipeline 16119, 1 job |
 
+**Re-probed on GitHub Actions, because a migration is exactly when a closed hole reopens.** The
+same scenario on the new gate: pushing tag `ci-probe-gha` created
+[run 29951709509](https://github.com/vrajjshah/agentforge/actions/runs/29951709509), `event: push`,
+which ran the full gate to **success** (control 34). The probe tag was deleted and the run record
+kept, same as before. This is not a formality — the GitLab hole came from coverage being decided in
+two places, and porting a config to a system with entirely different trigger semantics is the most
+likely moment to reintroduce it. Hence `on:` in `.github/workflows/gate.yml` lists branches, tags,
+pull requests and dispatch in one place, with **no job-level `if:` and exactly one job**, so there
+is no second place for the two to drift apart.
+
 Found because the sibling OpenEMR repo hit the same root cause from the opposite side: there
 `golden-gate` was rule-restricted while `lint` and `security` were not, so a manually-triggered
 pipeline ran two of three jobs and reported **success** — a green badge with the test suite missing.
@@ -103,6 +176,14 @@ Three controls in this repo have now been believed-working and were not: the she
 ignored `image:`, the runner created unlocked, and this. Every one was found by exercising the
 control; none by reading it. That is the platform's own thesis applied to its own scaffolding, and
 it keeps holding.
+
+The migration to GitHub Actions added a fourth and a fifth, both minor and both the same species:
+a `UV_CACHE_DIR` that was declared and silently overridden, and an action pinned to a floating tag
+that did not exist. Neither would have been caught by reading the file — the first looks correct and
+the second *is* correct-looking YAML naming a real release. The count is going up rather than down,
+which is the honest thing to report about a repo that keeps checking: it is not evidence the
+scaffolding is getting worse, it is evidence that a control nobody exercises has an indefinite
+half-life of looking fine.
 
 One prediction I made and got wrong, recorded because it was falsifiable: the sibling OpenEMR
 pipeline found six CVEs in `pip 25.0.1` bundled in `python:3.12-slim`, and I expected this pipeline
