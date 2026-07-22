@@ -83,10 +83,23 @@ jobs:
       # leave standing: see LESSON 1 above, where a declared image was likewise never exercised.
       # The cache is setup-uv's to manage, so it is left to manage it.
     steps:
-      - uses: actions/checkout@v7
+      # Third-party actions are pinned to a COMMIT SHA, not a tag. A floating tag like `@v7` is
+      # mutable by whoever owns the action: repointing it silently changes what executes inside a
+      # job that has read access to this repository. For a platform whose entire premise is that an
+      # unexamined control is worthless, taking a mutable dependency on someone else's release
+      # process would be the same defect one layer down. The version comment is for humans; the SHA
+      # is what actually runs.
+      #
+      # A note on how these were chosen, because getting it wrong is easy and silent-ish: I first
+      # wrote `astral-sh/setup-uv@v9`, inferring the tag from the latest release's `tag_name`
+      # (v9.0.0). That failed at "Set up job" with `unable to find version v9` — setup-uv publishes
+      # floating major aliases only up to v7, while v8 and v9 exist as exact releases only. The
+      # failure was loud and cost one run, which is the good case. Resolving the exact release to
+      # its SHA removes the guess entirely.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
