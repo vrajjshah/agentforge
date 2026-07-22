@@ -77,12 +77,16 @@ jobs:
     env:
       # Fail on a lockfile that does not match pyproject.toml rather than silently resolving around it.
       UV_FROZEN: "1"
-      UV_CACHE_DIR: /tmp/uv-cache
+      # No UV_CACHE_DIR here on purpose. It was set to /tmp/uv-cache in the first version of this
+      # file and the run log showed setup-uv overriding it with its own path — a declared setting
+      # that never took effect. Small, harmless, and exactly the class of thing this repo does not
+      # leave standing: see LESSON 1 above, where a declared image was likewise never exercised.
+      # The cache is setup-uv's to manage, so it is left to manage it.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v9
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
