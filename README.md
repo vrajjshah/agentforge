@@ -6,10 +6,69 @@ every step.** Its first target is an AI **Clinical Co-Pilot** (a chat agent buil
 fork), but the engine is target-agnostic: a system under test plugs in through a `TargetAdapter`,
 and all domain-specific success criteria live in a pluggable **check-pack** — never hardcoded.
 
-- **Live dashboard:** https://agentforge-web-production-c891.up.railway.app — a self-contained
-  security-ops view of coverage, findings, cost, and agent activity against the live target.
-- **Target under test:** https://45-55-53-165.sslip.io/copilot — content-fingerprinted on every
-  run (the platform never assumes the target is static).
+```bash
+uv run agentforge demo    # full discover → judge → document → regress loop, ~1s, offline, no cost
+```
+
+That command is the front door. It stands up an ephemeral vulnerable build, lets the Red Team
+re-discover a real cross-patient PHI leak, has the Judge confirm it CRITICAL, drafts a report, and
+proves the regression harness goes **red on the vulnerable build and green on the fixed one** —
+with no network, no API keys, and nothing deployed.
+
+### The three decisions worth arguing about
+
+- **The attacker and the judge are separate agents on different model families, and the Judge never
+  sees the Red Team's claim.** A system that invents an attack and then grades its own success has a
+  conflict of interest by construction. The Judge's oracle is a **policy written before the attack
+  ran** — not the attacker's opinion, not the response's vibe. That is what makes a verdict
+  falsifiable rather than persuasive.
+- **Deterministic first, models last.** Most attack generation is a mutation engine with zero model
+  calls, and the Judge runs a cheap deterministic ladder before it ever pays for an LLM. This was a
+  cost and reproducibility decision, not a hedge about model quality — and it is why the load test
+  shows 99% of wall-clock sitting inside a single semantic call.
+- **Model per role chosen by measured refusal behaviour, not brand.** I probed candidates and found
+  frontier models refuse offensive-security prompts *even against your own application*, so the Red
+  Team runs Llama 4 Maverick while the Judge runs Claude. Everything sits inside Bedrock under one
+  BAA, because the target is a clinical system.
+
+### What was actually hard
+
+Not the attacks — **trusting the verdicts.** An evaluation platform that agrees with everything is
+worse than no platform, so most of the engineering here is spent testing the tester: a Judge
+calibrated against human labels and published as **0.833 agreement, precision 1.0** with every
+disagreement listed; a drift gate on frozen goldens; and a rule that attacks the safety allow-list
+held back are bucketed as **held back, never banked as passes**. A test that did not fire is not a
+test that succeeded.
+
+Two things in here are deliberately unflattering and stay that way: a **published negative result**
+(a fix I built, measured, and found did not work — which also revealed my earlier measurements were
+too noisy to support the small wins I had claimed), and [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md),
+which records **controls I believed were working and were not.** That ledger is the most honest
+thing in the repo and the best guide to how the project thinks.
+
+> ### Infrastructure status — as of 2026-07-22
+>
+> This project was built against live infrastructure that has since been **decommissioned**. What
+> that means for a reader:
+>
+> | Was live | Status | What replaces it |
+> |---|---|---|
+> | Dashboard at `agentforge-web-production-c891.up.railway.app` | **gone** | `uv run agentforge dashboard` builds the same page locally |
+> | Target at `45-55-53-165.sslip.io/copilot` (DigitalOcean) | **gone** | the ephemeral vulnerable/fixed builds used by `demo`, `reports`, `loadtest` |
+> | GitLab CI at `labs.gauntletai.com`, self-hosted runner | **gone** | [`.github/workflows/gate.yml`](.github/workflows/gate.yml), re-proven red-then-green |
+>
+> **Everything an interviewer needs still runs offline**, because the suite and the demo were
+> hermetic by design from the start — no network, no Bedrock, no live target. `uv run pytest`
+> (160 tests) and `uv run agentforge demo` need nothing but `uv`.
+>
+> **What does not carry over, stated plainly:** the live results below — "zero exploits across 46
+> fired authenticated variants" — are a measurement of *one specific deployment at one commit*.
+> They are not a claim about the co-pilot's source code in the abstract. Several controls that made
+> that hold lived in the deployment rather than the app: the reverse proxy, gateway auth and rate
+> limiting, the OAuth scopes the client was registered with, and a single-worker topology the DoS
+> reasoning depends on. Redeploying elsewhere produces a **different system under test** — which is
+> why the adapter content-fingerprints the target on every run and would refuse to attribute an old
+> measurement to a new deployment. Re-run the sweep; do not inherit the number.
 
 ## Why a multi-agent system (not a static test suite)
 
@@ -31,15 +90,19 @@ Every model runs through **Amazon Bedrock under a single AWS BAA**. The attacker
 Requires [`uv`](https://docs.astral.sh/uv/) and Python 3.12.
 
 ```bash
-git clone https://labs.gauntletai.com/vrajshah/agentforge.git && cd agentforge
+git clone https://github.com/vrajjshah/agentforge.git && cd agentforge
 uv venv --python 3.12
 uv pip install -e . && uv pip install pytest pytest-asyncio ruff mypy bandit pip-audit respx
 
-uv run pytest                    # hermetic suite — stubs the target + Bedrock, no network/cost
+uv run pytest                    # hermetic suite, 160 tests — stubs the target + Bedrock, no network/cost
 uv run agentforge demo           # one-command end-to-end demo (below) — no network/cost
 ```
 
-To run against the live target and Bedrock, copy the env template and fill it in:
+Both of those work with no credentials and no deployment. That is the whole offline path.
+
+The live commands below are kept for completeness and **cannot be run as written any more** — the
+target they point at is decommissioned (see the infrastructure note above). They document how the
+live results were produced, and would work again against a redeployed target:
 
 ```bash
 cp .env.example .env             # then set AWS_BEARER_TOKEN_BEDROCK + (optionally) the target API key
@@ -47,7 +110,7 @@ uv run agentforge health         # is the target up? print its content fingerpri
 uv run agentforge probe-bedrock  # Judge (Claude) + attacker (Llama) reachability + refusal check
 ```
 
-Live commands (`--live`) hit the real deployed target and Bedrock and cost real money and time;
+Live commands (`--live`) hit a real deployed target and Bedrock and cost real money and time;
 they are opt-in and meant to be run in batches, never in the default test suite.
 
 ## Running attacks against the live target
@@ -121,8 +184,10 @@ Spins up an **ephemeral, isolated vulnerable build** of the target (a known cros
 reverted) — never a toggle on the live system — and runs the full loop end to end: the Red Team
 re-discovers the leak, the Judge flags it **CRITICAL / must-fix**, the Documentation agent drafts a
 report, and the **regression harness goes red on the vulnerable build and green on the fixed one**,
-asserting the security property (another patient's date of birth is absent), not a status code. This
-is the spine of the demo video.
+asserting the security property (another patient's date of birth is absent), not a status code.
+
+This is the one command to run if you only run one. It needs no credentials, touches no network, and
+finishes in about a second.
 
 ## Observability & analysis
 
@@ -281,39 +346,50 @@ Two things that gate is deliberately built to survive, both learned the expensiv
 Details, including the full proof-of-firing table for every control, in
 [docs/GATE_LEDGER.md](docs/GATE_LEDGER.md).
 
-## Submission URLs
-
-1. **Platform repository:** https://labs.gauntletai.com/vrajshah/agentforge
-2. **Deployed platform (dashboard):** https://agentforge-web-production-c891.up.railway.app
-3. **Target application repository:** the OpenEMR fork hosting the Clinical Co-Pilot.
-
-### Reviewer access to the gated detail
+## Why the dashboard gates its own findings
 
 The dashboard is deliberately split: **posture is public** (pass rate, per-category and per-severity
-counts, the calibration figures, "defense held") and **reproduction is not**. Vulnerability reports
-contain working attack sequences against a clinical system, so `/reports/*` returns **403** to an
-anonymous visitor — including a reviewer. That is the platform applying its own finding to itself,
-not an oversight.
+counts, the calibration figures, "defense held") and **reproduction is not**. A vulnerability report
+here is a working attack sequence against a clinical system, so `/reports/*` returns **403** to an
+anonymous visitor — no exceptions, including for someone I want to impress. Publishing working
+reproductions against a real deployment without a gate would contradict the entire premise of the
+project, so the platform applies its own finding to itself.
 
 Two ways in, both landing on the same gated view:
 
-| Route | Who it is for | Where |
+| Route | For | Where |
 |---|---|---|
-| **Log in with OpenEMR** (OIDC + PKCE, RBAC allow-list) | the platform owner, who has an OpenEMR account | `/login` |
-| **Operator token** (break-glass, POST-only, constant-time compare, every use audited) | a reviewer, who does not | `/login/token` |
+| **Log in with OpenEMR** (OIDC + PKCE, RBAC allow-list) | an operator who has an OpenEMR account | `/login` |
+| **Operator token** (break-glass, POST-only, constant-time compare, every use audited) | an operator who does not | `/login/token` |
 
-**The token is supplied with the submission, not in this repository** — it is a live credential for
-a deployed service, and a secret committed to a repo is a secret published. It lives only in the
-deployed service's `AGENTFORGE_ADMIN_TOKEN` environment variable. Clearing that variable revokes
-every live break-glass session immediately, which is how access is withdrawn after review.
+The break-glass path exists so the platform is never left *ungated* because the identity provider is
+down — that is the failure mode that tempts someone to turn the gate off. **No token is in this
+repository**, by construction: it lives only in a deployed service's `AGENTFORGE_ADMIN_TOKEN`
+environment variable, and a secret committed to a repo is a secret published. Clearing that variable
+revokes every live break-glass session immediately.
 
 Every use of it — served, granted, *and denied* — is appended to the platform's own append-only
-audit ledger by a writer that may record nothing else.
+audit ledger by a writer that may record nothing else. Proven in
+[docs/GATE_LEDGER.md](docs/GATE_LEDGER.md) controls 18, 19 and 32.
+
+Since the deployment is decommissioned, the way to see this now is the test suite:
+`uv run pytest tests/test_web_gating.py`, which asserts the 403, the withheld `findings` array, the
+absent technique string, and the ledger entries for both a denied and a granted token.
 
 ## Scope, safety & data
 
-Authorized security testing of **our own** application, run in an **isolated sandbox** seeded with
+Authorized security testing of **my own** application, run in an **isolated sandbox** seeded with
 **synthetic patients only** — no real PHI, no real patients, no production database, no third party.
 The target URL is an immutable allow-list, so the platform can attack nothing else; live runs are
 cost-capped and, with `--safe-live`, send no state-changing writes to the deployed target. All
 models run inside AWS under one BAA. Secrets live only in a git-ignored `.env`.
+
+## Licence
+
+AgentForge is **MIT** — see [LICENSE](LICENSE).
+
+The system under test is a **separate repository** with a **different licence**: the Clinical
+Co-Pilot is built on a fork of OpenEMR, so its derived parts are **GPL-3.0**. Nothing in this
+repository is GPL, and nothing here relicenses that one. The only coupling between them is an
+HTTP `TargetAdapter` and a check-pack describing the target's policy — no OpenEMR code is
+vendored, imported, or linked here.

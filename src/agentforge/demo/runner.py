@@ -1,7 +1,7 @@
 """One-command killer demo (`agentforge demo`).
 
 Runs the full discover→confirm→document→regress loop, in-process, against an ephemeral vulnerable
-build of the co-pilot and its fixed counterpart. Prints a narrative for the demo video. No network,
+build of the co-pilot and its fixed counterpart. Prints a readable narrative as it goes. No network,
 no Bedrock, no cost — deterministic and reproducible.
 """
 
@@ -83,7 +83,7 @@ async def run_demo() -> int:
     print(f"    ↳ asserted the SECURITY PROPERTY, not a 200: \"{green.security_property[:70]}…\"")
 
     print("\n" + "═" * 72)
-    print(" Result: the platform caught a real, known-answer vuln live, documented it, and")
-    print(" proved the fix closes it — the loop no classmate can demonstrate on ground truth.")
+    print(" Result: the platform caught a real, known-answer vuln, documented it, and proved the")
+    print(" fix closes it — the whole loop, on ground truth, with no network and no model calls.")
     print("═" * 72)
     return 0

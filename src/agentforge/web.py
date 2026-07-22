@@ -1,4 +1,4 @@
-"""AgentForge web service — the deployed observability dashboard (a submission artifact).
+"""AgentForge web service — the observability dashboard.
 
 One self-contained page answering the six observability questions — categories tested + counts,
 pass/fail rate, resilience over target versions, open/in-progress/resolved findings, run cost, and
