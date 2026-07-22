@@ -27,8 +27,10 @@ It does not cover the system under test: the Clinical Co-Pilot and its OpenEMR
 fork live in a separate repository under their own licence (OpenEMR is GPL-3.0),
 and no code from it is vendored here.
 
-The `reports/` directory contains working vulnerability reproductions against a
-deployed application. They are published for review, on a sandbox seeded with
-synthetic patients only — no real PHI, no real patients. Running them against
-any system you are not authorised to test is your responsibility, not a use this
-licence grants.
+The `reports/` directory contains vulnerability reproductions produced against an
+application I owned and operated, in a sandbox seeded with synthetic patients
+only — no real PHI, no real patients. That deployment has since been
+decommissioned and every finding is fixed, so the reproductions target nothing
+that exists; they are published as evidence of the work. Running them, or
+anything derived from them, against a system you are not authorised to test is
+your responsibility, not a use this licence grants.

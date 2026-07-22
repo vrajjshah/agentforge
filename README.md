@@ -349,11 +349,19 @@ Details, including the full proof-of-firing table for every control, in
 ## Why the dashboard gates its own findings
 
 The dashboard is deliberately split: **posture is public** (pass rate, per-category and per-severity
-counts, the calibration figures, "defense held") and **reproduction is not**. A vulnerability report
-here is a working attack sequence against a clinical system, so `/reports/*` returns **403** to an
-anonymous visitor — no exceptions, including for someone I want to impress. Publishing working
-reproductions against a real deployment without a gate would contradict the entire premise of the
-project, so the platform applies its own finding to itself.
+counts, the calibration figures, "defense held") and **reproduction is not**. While the target was
+live, a vulnerability report was a working attack sequence against a running clinical system, so
+`/reports/*` returned **403** to an anonymous visitor — no exceptions, including for someone I
+wanted to impress. Publishing working reproductions against a *live* deployment without a gate would
+contradict the entire premise of the project, so the platform applied its own finding to itself.
+
+> **Note on [reports/](reports/) being readable in this repository.** That is the other half of the
+> same policy, not a hole in it. The gate protects a **running system**; the target is now
+> decommissioned and every finding below is fixed and regression-guarded, so the reproductions point
+> at nothing that exists. **Gate while live, publish once closed** — the ordinary disclosure
+> lifecycle. The dashboard control is unchanged and still tested
+> (`uv run pytest tests/test_web_gating.py`, 18 tests), and it governs again the moment anything is
+> redeployed. The reports contain no credentials, no tokens, no host, and no real patient data.
 
 Two ways in, both landing on the same gated view:
 
