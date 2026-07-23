@@ -58,6 +58,26 @@ def _break_glass_enabled() -> bool:
     return bool(os.environ.get("AGENTFORGE_ADMIN_TOKEN"))
 
 
+def _public_disclosure() -> bool:
+    """Post-disclosure mode: the findings are published, so the read gate stops applying.
+
+    The exploit-detail gate exists because publishing a working attack sequence against a *live*
+    healthcare system is the anti-pattern this platform exists to flag. Once that system is torn
+    down and every finding is fixed, the reason evaporates and the same reports become the
+    evidence — which is the ordinary disclosure lifecycle, and why they are published in the
+    repository. Leaving the deployment gated then makes the live page contradict the repo while
+    pointing at an identity provider that no longer exists.
+
+    Scope, deliberately narrow:
+
+    * It opens **reads only** — reports, finding titles, attack chains. It is not consulted by
+      ``POST /api/run/{category}``, which is a mutating action and stays gated on every path.
+    * It is **opt-in**. Unset, the gate behaves exactly as before, so the control is intact and
+      still tested; re-gating a redeployment is removing one environment variable, not a revert.
+    """
+    return os.environ.get("AGENTFORGE_PUBLIC_REPORTS", "").strip().lower() in {"1", "true", "yes"}
+
+
 def _admin_token_ok(supplied: str | None) -> bool:
     """Break-glass principal: a shared operator token, constant-time compared. Disabled unless
     ``AGENTFORGE_ADMIN_TOKEN`` is set, so it is never an accidental open door."""
@@ -93,7 +113,12 @@ def _may_view_detail(request: Request,
     Aggregate posture (pass rate, per-category counts, "defense held") stays public so a reviewer
     can assess the platform; the reproduction steps do not. RBAC is re-evaluated on every request
     rather than trusted from login time, so revoking an operator takes effect immediately.
+
+    In post-disclosure mode (:func:`_public_disclosure`) the withholding has no subject left to
+    protect and the gate opens. This is a *read* gate only — see the note there.
     """
+    if _public_disclosure():
+        return True
     if _authorized(_current_operator(request)):
         return True
     return _admin_token_ok(x_admin_token or request.headers.get("x-admin-token"))
@@ -212,7 +237,11 @@ async def health() -> JSONResponse:
 @app.get("/api/dashboard")
 async def api_dashboard(request: Request) -> JSONResponse:
     data = _dashboard_data()
-    return JSONResponse(data if _may_view_detail(request) else _sanitized(data))
+    if not _may_view_detail(request):
+        return JSONResponse(_sanitized(data))
+    # State the posture explicitly rather than by omission, so a caller can assert on one field
+    # instead of inferring "ungated" from a missing key.
+    return JSONResponse({**data, "detail_gated": False})
 
 
 @app.get("/api/coverage")
@@ -431,7 +460,14 @@ def _signin_path() -> str:
     When break-glass is configured the sign-in page offers both routes — OpenEMR first as the
     primary path, the operator token beneath it as the fallback — so one control in the header
     covers both and no button in the UI leads somewhere that cannot currently work.
+
+    Post-disclosure that rule removes the control entirely: signing in would unlock nothing a
+    reader cannot already see, and the OpenEMR IdP the button points at was decommissioned with
+    the target. An offer to sign in that cannot succeed and would buy nothing is worse than no
+    offer, so this returns "" and every caller renders nothing.
     """
+    if _public_disclosure():
+        return ""
     if _break_glass_enabled():
         return "/login/token"
     return "/login" if _sso.enabled else ""
@@ -603,7 +639,17 @@ def _findings_section(findings: list[dict[str, Any]], detail: bool) -> str:
     everyone else gets counts and an explicit statement of what is being withheld and why."""
     head = "<h2>Findings</h2>"
     if detail:
-        return (f"{head}{_FINDINGS_LEAD}"
+        # Reproduction detail on a public security dashboard reads as a leak unless the reason is
+        # on the page. Only shown in post-disclosure mode; an operator who signed in does not need
+        # it, and rendering it to them would misdescribe why *they* can see this.
+        note = (
+            "<div class=lead><b>Why this is readable.</b> These reproductions are published "
+            "because the system they target was decommissioned and every finding is fixed and "
+            "regression-guarded — the ordinary disclosure lifecycle: gate while the target is "
+            "live, publish once it is closed. The same reports are in the public repository. "
+            "The gate itself is intact and returns if anything is redeployed.</div>"
+        ) if _public_disclosure() else ""
+        return (f"{head}{_FINDINGS_LEAD}{note}"
                 "<div class='card scroll'><table><thead><tr>"
                 "<th>Severity</th><th>Category</th><th>OWASP (web / LLM)</th><th>Status</th>"
                 "<th>Report</th></tr></thead><tbody>"

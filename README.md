@@ -8,7 +8,8 @@ and all domain-specific success criteria live in a pluggable **check-pack** — 
 
 **[→ Live dashboard](https://agentforge-web-production-c891.up.railway.app)** — how the platform
 reports itself, with nothing to install. It is a snapshot of the last sweep (2026-07-21), not a
-monitor, and it gates its own exploit detail: posture is public, reproduction returns 403
+monitor. Findings are readable there because the target has been decommissioned and the reports
+published; the gate that withheld them is intact and returns if anything is redeployed
 ([why](#why-the-dashboard-gates-its-own-findings)).
 
 Or run the whole loop locally:
@@ -65,11 +66,12 @@ thing in the repo and the best guide to how the project thinks.
 > | GitLab CI at `labs.gauntletai.com`, self-hosted runner | **gone** | replaced by [`.github/workflows/gate.yml`](.github/workflows/gate.yml), re-proven red-then-green |
 >
 > The live dashboard is a **snapshot, not a monitor**: its figures are the last sweep against that
-> target (2026-07-21), and it says so. It still enforces the split described in
-> [Why the dashboard gates its own findings](#why-the-dashboard-gates-its-own-findings) — posture is
-> served publicly, reproduction detail is refused to anonymous callers (`detail_gated: true`, and
-> `/reports/*` returns 403) even though the same reports are readable in this repo, for the reasons
-> in [reports/README.md](reports/README.md).
+> target (2026-07-21), and it says so. It now runs in **post-disclosure mode** — the target is gone
+> and the findings are published, so the deployment sets `AGENTFORGE_PUBLIC_REPORTS=1` and the
+> reproduction detail it used to withhold is readable, matching this repo instead of contradicting
+> it. The gate is unchanged in code and still proven by its tests; opening disclosure does **not**
+> open the mutating run trigger (ledger controls 18 and 35). See
+> [Why the dashboard gates its own findings](#why-the-dashboard-gates-its-own-findings).
 >
 > **Everything an interviewer needs still runs offline**, because the suite and the demo were
 > hermetic by design from the start — no network, no Bedrock, no live target. `uv run pytest`
@@ -369,15 +371,24 @@ live, a vulnerability report was a working attack sequence against a running cli
 wanted to impress. Publishing working reproductions against a *live* deployment without a gate would
 contradict the entire premise of the project, so the platform applied its own finding to itself.
 
-> **Note on [reports/](reports/) being readable in this repository.** That is the other half of the
-> same policy, not a hole in it. The gate protects a **running system**; the target is now
-> decommissioned and every finding below is fixed and regression-guarded, so the reproductions point
-> at nothing that exists. **Gate while live, publish once closed** — the ordinary disclosure
-> lifecycle. The dashboard control is unchanged and still tested
-> (`uv run pytest tests/test_web_gating.py`, 18 tests), and it governs again the moment anything is
-> redeployed. The reports contain no credentials, no tokens, no host, and no real patient data.
+> **Note on [reports/](reports/) being readable — in this repository *and now on the deployment*.**
+> That is the other half of the same policy, not a hole in it. The gate protects a **running
+> system**; the target is decommissioned and every finding below is fixed and regression-guarded, so
+> the reproductions point at nothing that exists. **Gate while live, publish once closed** — the
+> ordinary disclosure lifecycle. As of 2026-07-23 the deployment sets `AGENTFORGE_PUBLIC_REPORTS=1`
+> and stops withholding what this repo publishes; before that it was the strange position of
+> 403-ing a document anyone could read on GitHub, while pointing at a login whose identity provider
+> had been torn down with the target.
+>
+> What did *not* change: the control is untouched in code and still proven
+> (`uv run pytest tests/test_web_gating.py`, 26 tests — the gated-mode ones run with the flag off,
+> and one flips it back to watch the 403 return), the flag opens **reads only** and never the
+> mutating run trigger, and re-gating a redeployment is **removing one environment variable**. See
+> ledger controls 18 and 35. The reports contain no credentials, no tokens, no host, and no real
+> patient data.
 
-Two ways in, both landing on the same gated view:
+Two ways in, both landing on the same gated view — **retained in code, not currently offered**,
+since the deployment is in post-disclosure mode and the OpenEMR IdP is gone:
 
 | Route | For | Where |
 |---|---|---|

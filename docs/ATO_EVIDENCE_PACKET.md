@@ -24,9 +24,12 @@ database, the eval datasets and generated reports, and the read-only dashboard, 
 `agentforge-web-production-c891.up.railway.app` (**still live as of 2026-07-23**; it serves
 committed run artefacts rather than querying the target, so it outlived the target's teardown, and
 `uv run agentforge dashboard` builds the same page locally). The authorization boundary described
-below was assessed against that deployment and **is still the one in force there** — verified
-2026-07-23: anonymous `/api/dashboard` returns `detail_gated: true` with an empty `findings` array
-and a stated refusal, and `/reports/<id>.md` returns 403 (ledger control 18).
+below was assessed against that deployment. **One control has since been deliberately stood down
+there:** as of 2026-07-23 the deployment runs in post-disclosure mode (`AGENTFORGE_PUBLIC_REPORTS=1`),
+so the exploit-detail gate (control 18) is not engaged — the target it protected is decommissioned
+and the findings are published. The control is unchanged in code and still proven by its tests, it
+opens reads only, and the mutating run trigger remains gated on every path (control 35). Re-gating
+is one environment variable. Every other control in this packet is unaffected.
 
 **Outside, but connected:**
 
@@ -47,25 +50,28 @@ probe (`THREAT_MODEL.md`).
 **No real PHI.** Synthetic patients only, in an isolated sandbox. "Jordan Vulnera, DOB 1958-03-11"
 is fabricated.
 
-The sensitive data the platform *does* hold is **working exploit reproductions against a live
-healthcare system** — which is why the confidentiality categorization is Moderate despite the
-absence of PHI, and why reproduction detail is gated (§3, AC-3).
+The sensitive data the platform *does* hold is **working exploit reproductions against what was a
+live healthcare system** — which is why the confidentiality categorization is Moderate despite the
+absence of PHI, and why reproduction detail is gated (§3, AC-3) whenever such a system is running.
+That target is now decommissioned and the findings are published; the categorization is left at
+Moderate rather than lowered, because it describes what the platform holds by design, not the
+status of one torn-down deployment.
 
 | Store | Contents | Protection |
 |---|---|---|
 | Event ledger | attempt/verdict/cost/auth metadata | Append-only; least-privilege writers; `mask_phi` on every write path |
 | Vulnerability DB | full reproductions incl. synthetic PHI | Access-controlled; data-quality gate on write |
-| `reports/` | reproduction steps | Operator-only over HTTP; readable in-repo |
+| `reports/` | reproduction steps | Published (post-disclosure); operator-only over HTTP whenever the gate is re-engaged |
 | `evals/` | attack manifests + verdicts | Committed; no PHI (bodies reduced to metadata) |
 
 ## 3. Control claims and their evidence
 
 Each row names where the claim is enforced and how it was **proven to fire**. Full proof-of-firing
-table: `docs/GATE_LEDGER.md` (27 controls).
+table: `docs/GATE_LEDGER.md` (35 controls).
 
 | Family | Control | Evidence |
 |---|---|---|
-| **AC-2/AC-3** Access enforcement | Deny-by-default RBAC; exploit reproduction operator-only even in public-demo mode; mutating run trigger always gated | Gate ledger 18; `tests/test_web_gating.py`; verified live (anonymous `/reports/*` → 403) |
+| **AC-2/AC-3** Access enforcement | Deny-by-default RBAC; exploit reproduction operator-only whenever the gate is engaged (stood down post-disclosure — see §1); mutating run trigger always gated, including with disclosure open | Gate ledger 18, 35; `tests/test_web_gating.py` (26 tests, both modes) |
 | **AC-6** Least privilege | Each agent may append only its own ledger event types; the web service may append only auth events | Gate ledger 8, 28; `WriterNotAuthorized` |
 | **AU-2/AU-3** Audit events | Append-only ledger of every attempt, verdict, cost, and break-glass access, incl. denials | Gate ledger 28; verified in production logs |
 | **AU-9** Audit protection | Append-only by construction; PHI masked on write; token values never recorded | `stores/ledger.py`; `test_break_glass_use_is_recorded_in_the_ledger` |

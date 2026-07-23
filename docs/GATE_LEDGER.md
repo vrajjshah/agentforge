@@ -27,7 +27,7 @@ and the reproducible evidence command.
 | 15 | **Idempotency / TOCTOU (double-write)** | Judge | two 2xx write-successes across confirms (`max_success_2xx=1`) | verdict EXPLOITED (`double-write`) | one 2xx + one 409 → DEFENDED | `pytest tests/test_judge.py::test_double_write_is_exploited_toctou` |
 | 16 | **Per-campaign cost cap** | eval runner | a live run exceeding the budget | execution stops before the next billed turn | under budget → runs to completion | `run_category(..., budget_usd=)` halt path |
 | 17 | **Judge drift gate on frozen fixtures** | drift gate | flip a golden's expected label / tamper the fixture | gate BLOCKS (drift / tampered) | intact goldens → passes | `pytest tests/test_drift.py` |
-| 18 | **Exploit-detail gate** — reproduction is operator-only, even in public-demo mode | web | request `/reports/<id>.md` and `/api/dashboard` anonymously | 403 on the report; `findings: []` + `detail_gated` on the API; the technique string absent from the rendered page | authorized operator (SSO session, break-glass session, or `x-admin-token`) → full report + findings | `pytest tests/test_web_gating.py` |
+| 18 | **Exploit-detail gate** — reproduction is operator-only whenever the gate is engaged (see 35) | web | request `/reports/<id>.md` and `/api/dashboard` anonymously | 403 on the report; `findings: []` + `detail_gated` on the API; the technique string absent from the rendered page | authorized operator (SSO session, break-glass session, or `x-admin-token`) → full report + findings | `pytest tests/test_web_gating.py` |
 | 19 | **Break-glass authority expires with its token** | web | clear `AGENTFORGE_ADMIN_TOKEN` while a break-glass session is live | the live session loses detail access on its next request (403) | token set → same session is authorized | `pytest tests/test_web_gating.py::test_break_glass_revoked_when_token_cleared` |
 | 20 | **No-false-alarm guard on authorized writes** | check-pack | a legitimate authorized 200 chart write | NOT flagged (the signal is >1 success per record, not the first 200) | two 2xx across a raced/retried sequence → EXPLOITED | `pytest tests/test_checkpack.py::test_authorized_write_is_not_an_exploit_for_succeeding_once` · `tests/test_judge.py::test_double_write_is_exploited_toctou` |
 | 21 | **Server-wins identity on the authenticated surface** | check-pack | authenticated read echoes the planted sentinel actor | verdict EXPLOITED / HIGH | same read without the sentinel → DEFENDED | `pytest tests/test_judge.py::test_authenticated_forged_actor_echo_is_exploited` · `::test_authenticated_read_without_the_forged_actor_is_defended` |
@@ -44,6 +44,23 @@ and the reproducible evidence command.
 | 32 | **Every break-glass access is on the record** | web | submit a wrong operator token, then the right one | both appear in the ledger as `auth_access` (`denied`, then `granted`), written by the least-privilege `web` writer; the token value appears nowhere | a `web` writer attempting any other event type → `WriterNotAuthorized` | `pytest tests/test_web_gating.py::test_break_glass_use_is_recorded_in_the_ledger` · `::test_ledger_writer_for_auth_is_least_privilege` |
 | 33 | **CI pipeline** (same five checks, on a machine that is not the author's, in the image the config declares) | CI | `tests/test_planted_failure.py` with `assert 1 == 2`, pushed with `--no-verify` so the pre-push hook could not pre-empt the CI gate | [run 29951154890](https://github.com/vrajjshah/agentforge/actions/runs/29951154890) RED — `FAILED tests/test_planted_failure.py - assert 1 == 2`, `1 failed, 160 passed` | remove it, push → [run 29951258446](https://github.com/vrajjshah/agentforge/actions/runs/29951258446) GREEN, all five checks | `.github/workflows/gate.yml`, GitHub-hosted runner, `container: python:3.12-slim` |
 | 34 | **A tag push runs the gate** (the hole that was silent on GitLab) | CI | push tag `ci-probe-gha` | a run is created and the full gate executes in it | — (the probe *is* the pass: the failure mode being excluded is "no run at all") | [run 29951709509](https://github.com/vrajjshah/agentforge/actions/runs/29951709509) success, `event: push`, ref `ci-probe-gha`; probe tag deleted, run record kept |
+| 35 | **Post-disclosure opens reads only** — publishing the findings must never open the mutating run trigger | web | set `AGENTFORGE_PUBLIC_REPORTS=1` and POST `/api/run/<category>` anonymously | 401 — the trigger is unreachable by the disclosure flag on every path | remove the flag → the read gate returns 403 and `detail_gated: true` | `pytest tests/test_web_gating.py -k "public_mode or restores_the_gate"` |
+
+> **Disclosure note — 2026-07-23.** Control 18 is **intentionally not engaged on the public
+> deployment.** The gate exists because publishing a working attack sequence against a *live*
+> healthcare system is the anti-pattern this platform exists to flag. That system was
+> decommissioned on 2026-07-22 and every finding is fixed and regression-guarded, so the reason
+> expired and the reports became the evidence — the ordinary disclosure lifecycle: **gate while
+> the target is live, publish once it is closed.** The deployment therefore sets
+> `AGENTFORGE_PUBLIC_REPORTS=1`.
+>
+> This is recorded rather than quietly removed, because a ledger that only lists controls
+> currently switched on is a marketing page. Three things keep it honest: the control is
+> **unchanged in code and still proven** by its planted-failure row (the tests run with the flag
+> off, and one of them flips it back to watch 403 return); the flag opens **reads only**, which is
+> control 35; and re-gating a redeployment is **removing one environment variable**, not a revert.
+> If the co-pilot is redeployed, unset it — the gate resumes with no code change.
+
 
 ## The CI pipeline: what it runs on now, and what re-proving it properly cost
 
@@ -54,7 +71,7 @@ and the reproducible evidence command.
 > decommissioned, so every `labs.gauntletai.com` link below is archived and will not resolve.**
 > The claims those links supported are real, so the decisive trace lines are quoted inline instead
 > of being deleted or softened. Raw traces are retained outside this repo in
-> `gitlab-evidence-archive/` (jobs 55608, 55610, 55744, 55750 + 43 pipeline records).
+> a private archive (jobs 55608, 55610, 55744, 55750 + 43 pipeline records).
 >
 > The lessons in this section are kept in full and carried forward into the comments of
 > `.github/workflows/gate.yml`, because the traps are the interesting part, not the vendor.

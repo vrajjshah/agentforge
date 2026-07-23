@@ -20,9 +20,12 @@ operated, in a sandbox seeded with synthetic patients only — **no real PHI, no
 That deployment has since been decommissioned and every finding is fixed and regression-guarded, so
 the reproductions target nothing that exists; they are published as evidence of the work. This is
 the ordinary disclosure lifecycle — **gate while the system is live, publish once it is closed** —
-and it is described in full in [reports/README.md](reports/README.md). The dashboard's operator-only
-gate on exploit detail is unchanged and still tested (`uv run pytest tests/test_web_gating.py`), and
-it governs again the moment anything is redeployed.
+and it is described in full in [reports/README.md](reports/README.md).
+
+The live dashboard now reflects that same decision: it runs with `AGENTFORGE_PUBLIC_REPORTS=1`, so
+it no longer withholds what this repository publishes. The gate itself is unchanged in code and
+still tested (`uv run pytest tests/test_web_gating.py`), it opens reads only — never the mutating
+run trigger — and it governs again the moment anything is redeployed.
 
 Running these reproductions, or anything derived from them, against a system you are not authorised
 to test is your responsibility, not a use this licence grants.

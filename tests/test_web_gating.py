@@ -68,6 +68,10 @@ def web_app(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
         operator_roles=("admin",), operator_names={}, require_sso=False,
         cookie_secure=False))
     monkeypatch.setenv("AGENTFORGE_ADMIN_TOKEN", _TOKEN)
+    # Pin the gated baseline against the ambient environment. The deployment sets
+    # AGENTFORGE_PUBLIC_REPORTS, so an exported shell value would otherwise open the gate under
+    # the tests that exist to prove it closed, and they would pass by not testing anything.
+    monkeypatch.delenv("AGENTFORGE_PUBLIC_REPORTS", raising=False)
     return web
 
 
@@ -124,7 +128,7 @@ async def test_admin_token_header_unlocks_detail(web_app: Any) -> None:
     assert report.status_code == 200
     assert "GET /week2/documents" in report.text
     assert len(api.json()["findings"]) == 2
-    assert "detail_gated" not in api.json()
+    assert api.json()["detail_gated"] is False   # stated on both sides, never absent
 
 
 async def test_wrong_admin_token_stays_locked(web_app: Any) -> None:
@@ -319,3 +323,82 @@ async def test_sso_records_the_verified_identity_on_both_outcomes(
     for payload in by_outcome.values():
         assert payload["subject"] == op.subject      # the value the allow-list needs
         assert payload["email"] == op.email
+
+
+# --- post-disclosure: the read gate opens, the mutating one does not --------------------------
+# The target was decommissioned and every finding is fixed, so the reports are published and the
+# deployment sets AGENTFORGE_PUBLIC_REPORTS. What matters is that this opens *reads only* and
+# stays reversible, so both properties are pinned here rather than assumed.
+@pytest.fixture()
+def public_app(web_app: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.setenv("AGENTFORGE_PUBLIC_REPORTS", "1")
+    return web_app
+
+
+async def test_public_mode_serves_the_report(public_app: Any) -> None:
+    async with _client(public_app) as c:
+        r = await c.get("/reports/ea8fa01.md")
+    assert r.status_code == 200
+    assert "GET /week2/documents" in r.text
+
+
+async def test_public_mode_publishes_findings_and_says_so(public_app: Any) -> None:
+    async with _client(public_app) as c:
+        r = await c.get("/api/dashboard")
+    body = r.json()
+    assert body["detail_gated"] is False          # stated, not implied by a missing key
+    assert [f["id"] for f in body["findings"]] == ["v1", "v2"]
+    assert body["totals"]["pass_rate"] == 0.979   # posture is unchanged by the mode
+
+
+async def test_public_mode_still_refuses_the_run_trigger(public_app: Any) -> None:
+    """The load-bearing one: opening disclosure must not open a mutating action."""
+    async with _client(public_app) as c:
+        r = await c.post("/api/run/data_exfiltration")
+    assert r.status_code == 401
+
+
+async def test_public_mode_still_blocks_path_traversal(public_app: Any) -> None:
+    async with _client(public_app) as c:
+        r = await c.get("/reports/..%2f..%2fetc%2fpasswd")
+    assert r.status_code == 404
+
+
+async def test_public_mode_offers_no_sign_in_that_cannot_work(public_app: Any) -> None:
+    """The IdP was decommissioned with the target; signing in would also unlock nothing."""
+    async with _client(public_app) as c:
+        r = await c.get("/")
+    assert r.status_code == 200
+    assert "Sign in" not in r.text
+    assert "/login" not in r.text
+
+
+async def test_public_mode_explains_why_the_detail_is_readable(public_app: Any) -> None:
+    """Exploit steps on a public dashboard read as a leak unless the page says otherwise."""
+    async with _client(public_app) as c:
+        r = await c.get("/")
+    assert "Why this is readable" in r.text
+    assert "decommissioned" in r.text
+
+
+async def test_removing_the_flag_restores_the_gate(web_app: Any,
+                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """Re-gating a redeployment is one environment variable, not a revert."""
+    monkeypatch.setenv("AGENTFORGE_PUBLIC_REPORTS", "1")
+    async with _client(web_app) as c:
+        assert (await c.get("/reports/ea8fa01.md")).status_code == 200
+    monkeypatch.delenv("AGENTFORGE_PUBLIC_REPORTS")
+    async with _client(web_app) as c:
+        r = await c.get("/reports/ea8fa01.md")
+        assert r.status_code == 403
+        assert (await c.get("/api/dashboard")).json()["detail_gated"] is True
+    assert _TECHNIQUE not in r.text
+
+
+async def test_only_explicit_truthy_values_open_the_gate(web_app: Any,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unset-but-present variable ("", "0", "false") must not be read as consent."""
+    for value in ("", "0", "false", "no", "off"):
+        monkeypatch.setenv("AGENTFORGE_PUBLIC_REPORTS", value)
+        async with _client(web_app) as c:
+            assert (await c.get("/reports/ea8fa01.md")).status_code == 403, value
