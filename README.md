@@ -46,16 +46,23 @@ too noisy to support the small wins I had claimed), and [docs/GATE_LEDGER.md](do
 which records **controls I believed were working and were not.** That ledger is the most honest
 thing in the repo and the best guide to how the project thinks.
 
-> ### Infrastructure status — as of 2026-07-22
+> ### Infrastructure status — as of 2026-07-23
 >
-> This project was built against live infrastructure that has since been **decommissioned**. What
-> that means for a reader:
+> This project was built against live infrastructure. **The dashboard is still up — the target and
+> the CI it ran on are gone.** What that means for a reader:
 >
-> | Was live | Status | What replaces it |
+> | Was live | Status | What that means |
 > |---|---|---|
-> | Dashboard at `agentforge-web-production-c891.up.railway.app` | **gone** | `uv run agentforge dashboard` builds the same page locally |
-> | Target at `45-55-53-165.sslip.io/copilot` (DigitalOcean) | **gone** | the ephemeral vulnerable/fixed builds used by `demo`, `reports`, `loadtest` |
-> | GitLab CI at `labs.gauntletai.com`, self-hosted runner | **gone** | [`.github/workflows/gate.yml`](.github/workflows/gate.yml), re-proven red-then-green |
+> | Dashboard at [`agentforge-web-production-c891.up.railway.app`](https://agentforge-web-production-c891.up.railway.app) | **live** | it renders committed run artefacts rather than querying the target, so it outlived the thing it tested. `uv run agentforge dashboard` builds the same page locally |
+> | Target at `45-55-53-165.sslip.io/copilot` (DigitalOcean) | **gone** | replaced by the ephemeral vulnerable/fixed builds used by `demo`, `reports`, `loadtest` |
+> | GitLab CI at `labs.gauntletai.com`, self-hosted runner | **gone** | replaced by [`.github/workflows/gate.yml`](.github/workflows/gate.yml), re-proven red-then-green |
+>
+> The live dashboard is a **snapshot, not a monitor**: its figures are the last sweep against that
+> target (2026-07-21), and it says so. It still enforces the split described in
+> [Why the dashboard gates its own findings](#why-the-dashboard-gates-its-own-findings) — posture is
+> served publicly, reproduction detail is refused to anonymous callers (`detail_gated: true`, and
+> `/reports/*` returns 403) even though the same reports are readable in this repo, for the reasons
+> in [reports/README.md](reports/README.md).
 >
 > **Everything an interviewer needs still runs offline**, because the suite and the demo were
 > hermetic by design from the start — no network, no Bedrock, no live target. `uv run pytest`

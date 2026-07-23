@@ -20,10 +20,13 @@ testing without harming patients (availability).
 ## 1. Authorization boundary
 
 **Inside:** the platform's four agents and orchestration graph, the event ledger and vulnerability
-database, the eval datasets and generated reports, and the read-only dashboard — which was deployed
-at `agentforge-web-production-c891.up.railway.app` (**decommissioned 2026-07-22; the URL no longer
-resolves**, and the dashboard now runs locally via `uv run agentforge dashboard`). The authorization
-boundary described below was assessed against that deployment.
+database, the eval datasets and generated reports, and the read-only dashboard, deployed at
+`agentforge-web-production-c891.up.railway.app` (**still live as of 2026-07-23**; it serves
+committed run artefacts rather than querying the target, so it outlived the target's teardown, and
+`uv run agentforge dashboard` builds the same page locally). The authorization boundary described
+below was assessed against that deployment and **is still the one in force there** — verified
+2026-07-23: anonymous `/api/dashboard` returns `detail_gated: true` with an empty `findings` array
+and a stated refusal, and `/reports/<id>.md` returns 403 (ledger control 18).
 
 **Outside, but connected:**
 
