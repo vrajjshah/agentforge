@@ -48,6 +48,11 @@ re-finding our own patched bugs.
 
 ### Entry points (routes), relative to `https://45-55-53-165.sslip.io/copilot`
 
+> **Archived host (2026-07-22).** That deployment is decommissioned and the hostname no longer
+> resolves. The routes below are the target's *API surface*, which is what this threat model is
+> about — they remain accurate against the co-pilot's source and would apply to any redeployment.
+> Only the base URL is dead.
+
 | Method | Route | Red-team relevance |
 |---|---|---|
 | POST | `/chat` | the agent — direct / indirect / multi-turn injection surface |

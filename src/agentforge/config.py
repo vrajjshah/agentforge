@@ -61,6 +61,11 @@ class Settings:
     def from_env(cls, *, load: bool = True) -> Settings:
         if load:
             load_dotenv(_REPO_ROOT / ".env", override=False)
+        # The default host was decommissioned 2026-07-22 and no longer resolves. Kept deliberately:
+        # it records what the published live results were measured against, and because this value
+        # is the immutable allow-list, a dead default fails CLOSED (live runs error; they cannot
+        # wander to another origin). Override with AGENTFORGE_TARGET_URL to attack your own
+        # deployment. Hermetic runs never read it.
         target_url = os.environ.get("AGENTFORGE_TARGET_URL", "https://45-55-53-165.sslip.io/copilot")
         return cls(
             target_url=target_url.rstrip("/"),

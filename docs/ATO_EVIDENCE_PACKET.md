@@ -20,8 +20,10 @@ testing without harming patients (availability).
 ## 1. Authorization boundary
 
 **Inside:** the platform's four agents and orchestration graph, the event ledger and vulnerability
-database, the eval datasets and generated reports, and the deployed read-only dashboard
-(`agentforge-web-production-c891.up.railway.app`).
+database, the eval datasets and generated reports, and the read-only dashboard — which was deployed
+at `agentforge-web-production-c891.up.railway.app` (**decommissioned 2026-07-22; the URL no longer
+resolves**, and the dashboard now runs locally via `uv run agentforge dashboard`). The authorization
+boundary described below was assessed against that deployment.
 
 **Outside, but connected:**
 
