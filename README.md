@@ -6,6 +6,13 @@ every step.** Its first target is an AI **Clinical Co-Pilot** (a chat agent buil
 fork), but the engine is target-agnostic: a system under test plugs in through a `TargetAdapter`,
 and all domain-specific success criteria live in a pluggable **check-pack** — never hardcoded.
 
+**[→ Live dashboard](https://agentforge-web-production-c891.up.railway.app)** — how the platform
+reports itself, with nothing to install. It is a snapshot of the last sweep (2026-07-21), not a
+monitor, and it gates its own exploit detail: posture is public, reproduction returns 403
+([why](#why-the-dashboard-gates-its-own-findings)).
+
+Or run the whole loop locally:
+
 ```bash
 uv run agentforge demo    # full discover → judge → document → regress loop, ~1s, offline, no cost
 ```
