@@ -394,7 +394,7 @@ models run inside AWS under one BAA. Secrets live only in a git-ignored `.env`.
 
 ## Licence
 
-AgentForge is **MIT** — see [LICENSE](LICENSE).
+AgentForge is **MIT** — see [LICENSE](LICENSE), with scope notes in [NOTICE.md](NOTICE.md).
 
 The system under test is a **separate repository** with a **different licence**: the Clinical
 Co-Pilot is built on a fork of OpenEMR, so its derived parts are **GPL-3.0**. Nothing in this
